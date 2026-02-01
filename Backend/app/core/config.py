@@ -1,36 +1,10 @@
-from typing import List
-from pydantic_settings import BaseSettings, SettingsConfigDict
-
+from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
-    """
-    Centralized application configuration.
-    All values come from environment variables.
-    """
-
-    # Application
-    APP_NAME: str = "AegisFlow API"
-    APP_VERSION: str = "1.0.0"
-    DEBUG: bool = False
-    APP_ENV: str = "development"
-
-    # Security
-    JWT_SECRET: str
-    JWT_ALGORITHM: str = "HS256"
-    JWT_EXPIRY_MINUTES: int = 60
-
-    # Database
+    PROJECT_NAME: str = "AegisFlow"
     DATABASE_URL: str
 
-    # CORS
-    CORS_ORIGINS: List[str] = ["http://localhost:3000"]
+    class Config:
+        env_file = ".env"
 
-    model_config = SettingsConfigDict(
-        env_file=".env",
-        env_file_encoding="utf-8",
-        case_sensitive=True,
-    )
-
-
-# Singleton settings object
 settings = Settings()

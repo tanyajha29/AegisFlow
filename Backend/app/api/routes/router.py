@@ -1,5 +1,10 @@
 from fastapi import APIRouter
-from app.api.routes import auth
+
+try:
+	from app.api.routes import auth
+except Exception:
+	auth = None
 
 api_router = APIRouter()
-api_router.include_router(auth.router)
+if auth is not None and hasattr(auth, "router"):
+	api_router.include_router(auth.router)
