@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user
+from app.api.deps import ensure_owner_or_admin, get_current_user
 from app.db.session import get_db
 from app.models.project import Project
 from app.models.user import User
@@ -22,14 +22,6 @@ def _get_project_or_404(db: Session, project_id: int) -> Project:
             detail="Project not found"
         )
     return project
-
-
-def _ensure_owner_or_admin(project: Project, current_user: User) -> None:
-    if current_user.role.name != "admin" and project.owner_id != current_user.id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Forbidden"
-        )
 
 
 @router.post("", response_model=ProjectResponse, status_code=status.HTTP_201_CREATED)
@@ -72,7 +64,7 @@ def get_project(
 ):
     """Get a single project (owner or admin)."""
     project = _get_project_or_404(db, project_id)
-    _ensure_owner_or_admin(project, current_user)
+    ensure_owner_or_admin(project.owner_id, current_user)
     return project
 
 
@@ -85,7 +77,7 @@ def update_project(
 ):
     """Update a project (owner or admin)."""
     project = _get_project_or_404(db, project_id)
-    _ensure_owner_or_admin(project, current_user)
+    ensure_owner_or_admin(project.owner_id, current_user)
 
     if payload.name is not None:
         project.name = payload.name
@@ -105,7 +97,7 @@ def delete_project(
 ):
     """Soft delete a project (owner or admin)."""
     project = _get_project_or_404(db, project_id)
-    _ensure_owner_or_admin(project, current_user)
+    ensure_owner_or_admin(project.owner_id, current_user)
 
     project.is_active = False
     db.commit()

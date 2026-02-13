@@ -69,3 +69,13 @@ def require_role(required_roles: list[str]):
         return current_user
 
     return _role_guard
+
+
+def ensure_owner_or_admin(owner_id: int, current_user: User) -> None:
+    """Ensure the current user is the owner or has admin role."""
+    role_name = getattr(current_user.role, "name", None)
+    if role_name != "admin" and owner_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Forbidden"
+        )
