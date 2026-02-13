@@ -3,6 +3,7 @@ from sqlalchemy.orm import relationship
 from app.db.base import Base
 
 class User(Base):
+    """User account with role and owned projects."""
     __tablename__ = "users"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -11,3 +12,4 @@ class User(Base):
     is_active = Column(Boolean, default=True)
     role_id = Column(Integer, ForeignKey("roles.id"), nullable=False)
     role = relationship("Role", back_populates="users")
+    projects = relationship("Project", back_populates="owner")
