@@ -51,3 +51,17 @@ def get_current_user(
         )
 
     return user
+
+
+def require_role(required_roles: list[str]):
+    """Return a dependency that ensures the current user has an allowed role."""
+    def _role_guard(current_user: User = Depends(get_current_user)) -> User:
+        role_name = getattr(current_user.role, "name", None)
+        if role_name not in required_roles:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Forbidden"
+            )
+        return current_user
+
+    return _role_guard
