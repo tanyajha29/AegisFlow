@@ -45,3 +45,45 @@ def test_protected_route(client):
     assert response.status_code == 200
     data = response.json()
     assert data["username"] == "carol"
+
+
+def test_admin_can_list_users(client, admin_token):
+    response = client.get(
+        "/auth/admin/users",
+        headers={"Authorization": f"Bearer {admin_token}"}
+    )
+    assert response.status_code == 200
+    assert isinstance(response.json(), list)
+
+
+def test_normal_user_forbidden_admin_routes(client, normal_token):
+    response = client.get(
+        "/auth/admin/users",
+        headers={"Authorization": f"Bearer {normal_token}"}
+    )
+    assert response.status_code == 403
+
+
+def test_admin_can_change_role(client, admin_token, normal_user):
+    response = client.patch(
+        f"/auth/admin/users/{normal_user['id']}/role",
+        headers={"Authorization": f"Bearer {admin_token}"},
+        json={"role_name": "admin"}
+    )
+    assert response.status_code == 200
+    assert response.json()["id"] == normal_user["id"]
+
+
+def test_deactivated_user_cannot_login(client, admin_token, normal_user):
+    response = client.patch(
+        f"/auth/admin/users/{normal_user['id']}/status",
+        headers={"Authorization": f"Bearer {admin_token}"},
+        json={"is_active": False}
+    )
+    assert response.status_code == 200
+
+    login = client.post(
+        "/auth/login",
+        json={"email": normal_user["username"], "password": "Password123!"}
+    )
+    assert login.status_code == 403
