@@ -15,6 +15,12 @@ class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
 
+class AdminRoleUpdate(BaseModel):
+    role_name: str = Field(..., min_length=1)
+
+class AdminStatusUpdate(BaseModel):
+    is_active: bool
+
 class UserOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
