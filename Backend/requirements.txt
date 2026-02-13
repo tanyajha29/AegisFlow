@@ -13,7 +13,7 @@ pydantic-settings==2.2.1
 # =========================
 # Database (psycopg v3)
 # =========================
-sqlalchemy==2.0.25
+sqlalchemy==2.0.43
 psycopg[binary]==3.3.2
 alembic==1.13.1
 
@@ -22,6 +22,7 @@ alembic==1.13.1
 # =========================
 python-jose[cryptography]==3.3.0
 passlib[bcrypt]==1.7.4
+bcrypt==3.2.2
 
 # =========================
 # Observability
