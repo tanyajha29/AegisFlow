@@ -53,14 +53,23 @@ async def upload_code(
             with open(file_path, "w") as f:
                 f.write(code_content)
         
-        # Here we would trigger the actual background scan task
-        # For now, we'll just mark it as processing and return
-        # In a real app we would use Celery or BackgroundTasks
         
-        # We will implement the scanner logic in the next step
-        # By calling a sync/async scan function directly for MVP purposes
+        # Trigger the actual scan synchronously (for MVPs)
+        from scanner.engine import run_scan
+        vulnerabilities, risk_score = run_scan(scan_dir)
         
-        new_scan.status = "processing"
+        # Save vulnerabilities to db
+        db_vulns = []
+        for v in vulnerabilities:
+            db_vuln = models.Vulnerability(
+                scan_id=new_scan.id,
+                **v
+            )
+            db.add(db_vuln)
+            db_vulns.append(db_vuln)
+            
+        new_scan.risk_score = risk_score
+        new_scan.status = "completed"
         db.commit()
         db.refresh(new_scan)
         
