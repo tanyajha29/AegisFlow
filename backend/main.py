@@ -1,5 +1,10 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from database import engine, Base
+from routers import auth
+
+# Create database tables
+Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Drishti-Scan API")
 
@@ -12,6 +17,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(auth.router)
+
 @app.get("/")
 def read_root():
     return {"message": "Welcome to Drishti-Scan API"}
+
