@@ -60,3 +60,14 @@ class ScanResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+class ScanListResponse(BaseModel):
+    id: int
+    title: str
+    created_at: datetime
+    status: str
+    risk_score: float
+    owner_id: int
+
+    class Config:
+        from_attributes = True

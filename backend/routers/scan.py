@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 from sqlalchemy.orm import Session
+from typing import List
 import os
 import shutil
 from datetime import datetime
@@ -10,6 +11,10 @@ router = APIRouter(prefix="/scans", tags=["scans"])
 
 UPLOAD_DIR = "uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
+
+@router.get("/", response_model=List[schemas.ScanListResponse])
+def get_user_scans(db: Session = Depends(database.get_db), current_user: models.User = Depends(get_current_user)):
+    return db.query(models.Scan).filter(models.Scan.owner_id == current_user.id).order_by(models.Scan.created_at.desc()).all()
 
 @router.post("/upload", response_model=schemas.ScanResponse)
 async def upload_code(
