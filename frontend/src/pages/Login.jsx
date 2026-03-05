@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ShieldCheckIcon, EyeIcon, EyeSlashIcon } from '@heroicons/react/24/outline';
+import { EyeIcon, EyeSlashIcon } from '@heroicons/react/24/outline';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
 
@@ -35,11 +35,11 @@ const Login = () => {
         <div className="space-y-6 text-slate-200">
           <div className="inline-flex items-center gap-3 px-4 py-2 rounded-full bg-white/5 border border-white/10">
             <div className="h-10 w-10 rounded-2xl bg-gradient-to-br from-cyber to-accent flex items-center justify-center shadow-glow">
-              <ShieldCheckIcon className="h-6 w-6 text-white" />
+              <EyeIcon className="h-6 w-6 text-white" />
             </div>
             <div>
               <p className="text-sm text-slate-400">Welcome to</p>
-              <p className="text-lg font-semibold text-white">CodeShield Security Cloud</p>
+              <p className="text-lg font-semibold text-white">DristiScan Security Cloud</p>
             </div>
           </div>
           <h1 className="text-4xl font-bold text-white leading-tight">
