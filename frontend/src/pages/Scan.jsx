@@ -25,7 +25,9 @@ const Scan = () => {
     setLocalError(null);
     try {
       setProgress(10);
-      await runCodeScan({ code, file_name: `demo.${language === 'text' ? 'txt' : language}` });
+      const extMap = { python: 'py', javascript: 'js', java: 'java', php: 'php', text: 'txt' };
+      const ext = extMap[language] || 'txt';
+      await runCodeScan({ code, file_name: `demo.${ext}` });
       setProgress(100);
       navigate('/results');
     } catch (e) {
