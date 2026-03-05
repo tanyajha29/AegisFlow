@@ -1,20 +1,53 @@
 import React, { useState } from 'react';
 import { ArrowPathIcon } from '@heroicons/react/24/outline';
+import { useNavigate } from 'react-router-dom';
 import CodeEditorPanel from '../components/CodeEditorPanel.jsx';
 import ProgressBar from '../components/ProgressBar.jsx';
 import SeverityBadge from '../components/SeverityBadge.jsx';
 import GlassCard from '../components/GlassCard.jsx';
+import { useScan } from '../context/ScanContext.jsx';
 
 const Scan = () => {
   const [code, setCode] = useState(`import os\nuser_input = input()\nos.system("ping " + user_input)\n`);
   const [language, setLanguage] = useState('python');
-  const [progress, setProgress] = useState(72);
+  const [progress, setProgress] = useState(0);
+  const [localError, setLocalError] = useState(null);
+  const { runCodeScan, runUploadScan, loading } = useScan();
+  const navigate = useNavigate();
 
   const findings = [
     { name: 'Command Injection', severity: 'High', file: 'example.py', line: 3 },
     { name: 'Hardcoded secret', severity: 'Medium', file: 'config.js', line: 21 },
     { name: 'Outdated dependency', severity: 'Low', file: 'requirements.txt', line: 5 },
   ];
+
+  const handleRun = async () => {
+    setLocalError(null);
+    try {
+      setProgress(10);
+      await runCodeScan({ code, file_name: `demo.${language === 'text' ? 'txt' : language}` });
+      setProgress(100);
+      navigate('/results');
+    } catch (e) {
+      setLocalError('Scan failed. Check logs or try again.');
+      setProgress(0);
+    }
+  };
+
+  const handleUpload = async (event) => {
+    const file = event?.target?.files?.[0];
+    if (!file) return;
+    setLocalError(null);
+    try {
+      setProgress(10);
+      await runUploadScan(file);
+      setProgress(100);
+      navigate('/results');
+    } catch (e) {
+      setLocalError('Upload scan failed.');
+      setProgress(0);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -35,18 +68,20 @@ const Scan = () => {
         setCode={setCode}
         language={language}
         setLanguage={setLanguage}
-        onUpload={() => alert('Upload handler placeholder')}
-        onRun={() => setProgress((p) => (p === 100 ? 15 : p + 15))}
+        onUpload={() => document.getElementById('file-upload-input').click()}
+        onRun={handleRun}
       />
+      <input id="file-upload-input" type="file" className="hidden" onChange={handleUpload} />
 
       <div className="grid lg:grid-cols-3 gap-4">
         <GlassCard className="p-4">
           <div className="flex items-center justify-between mb-3">
             <p className="text-sm text-slate-400">Scan Progress</p>
-            <p className="text-xs text-slate-500">{progress}%</p>
+            <p className="text-xs text-slate-500">{progress}% {loading ? '(running)' : ''}</p>
           </div>
           <ProgressBar value={progress} />
           <p className="text-xs text-slate-500 mt-2">Background tasks running SAST + Secrets + Dependency checks.</p>
+          {localError && <p className="text-xs text-critical mt-2">{localError}</p>}
         </GlassCard>
         <GlassCard className="p-4 space-y-2">
           <p className="text-sm text-slate-400">Recent Findings</p>
