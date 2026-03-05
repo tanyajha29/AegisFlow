@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   ShieldCheckIcon,
   BoltIcon,
@@ -13,11 +13,37 @@ import ChartCard from '../components/ChartCard.jsx';
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, ArcElement, BarElement, Tooltip, Legend);
 
 const Dashboard = () => {
+  const [history, setHistory] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    import('../lib/api.js').then(({ default: api }) => {
+      api
+        .get('/reports/history')
+        .then((res) => setHistory(res.data.reports || []))
+        .finally(() => setLoading(false));
+    });
+  }, []);
+
+  const totalScans = history.length;
+  const totalIssues = history.reduce((sum, r) => sum + (r.total_vulnerabilities || 0), 0);
+  const avgScore = totalScans ? Math.round(history.reduce((s, r) => s + (r.risk_score || 0), 0) / totalScans) : 0;
+
+  const severityCounts = history.reduce(
+    (acc, r) => {
+      (r.vulnerabilities || []).forEach((v) => {
+        acc[v.severity] = (acc[v.severity] || 0) + 1;
+      });
+      return acc;
+    },
+    { Critical: 0, High: 0, Medium: 0, Low: 0 }
+  );
+
   const severityData = {
     labels: ['Critical', 'High', 'Medium', 'Low'],
     datasets: [
       {
-        data: [4, 9, 14, 22],
+        data: [severityCounts.Critical, severityCounts.High, severityCounts.Medium, severityCounts.Low],
         backgroundColor: ['#EF4444', '#F97316', '#EAB308', '#22C55E'],
         borderWidth: 0,
       },
@@ -25,11 +51,11 @@ const Dashboard = () => {
   };
 
   const scoreData = {
-    labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+    labels: history.slice(-6).map((r) => `#${r.scan_id}`),
     datasets: [
       {
         label: 'Security Score',
-        data: [68, 73, 76, 82, 84, 87],
+        data: history.slice(-6).map((r) => r.risk_score || 0),
         borderColor: '#22D3EE',
         backgroundColor: 'rgba(34,211,238,0.15)',
         tension: 0.35,
@@ -38,16 +64,7 @@ const Dashboard = () => {
     ],
   };
 
-  const typeData = {
-    labels: ['Secrets', 'SAST', 'Dependencies', 'Config'],
-    datasets: [
-      {
-        data: [18, 26, 12, 8],
-        backgroundColor: ['#22D3EE', '#2563EB', '#EAB308', '#EF4444'],
-        borderRadius: 8,
-      },
-    ],
-  };
+  const typeData = severityData; // placeholder since API doesn't classify types yet
 
   return (
     <div className="space-y-6">
@@ -64,10 +81,10 @@ const Dashboard = () => {
       </div>
 
       <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard title="Total Scans" value="184" subtext="Last 30 days" icon={BoltIcon} color="bg-cyber/80" />
-        <StatCard title="Total Vulnerabilities" value="47" subtext="-12% vs last month" icon={ExclamationTriangleIcon} color="bg-critical/80" />
-        <StatCard title="Average Security Score" value="87" subtext="Across active projects" icon={ShieldCheckIcon} color="bg-accent/70" />
-        <StatCard title="Recent Activity" value="12 scans" subtext="Past 24 hours" icon={ChartBarSquareIcon} color="bg-white/10" />
+        <StatCard title="Total Scans" value={totalScans} subtext="All time" icon={BoltIcon} color="bg-cyber/80" />
+        <StatCard title="Total Vulnerabilities" value={totalIssues} subtext="Across scans" icon={ExclamationTriangleIcon} color="bg-critical/80" />
+        <StatCard title="Average Security Score" value={avgScore} subtext="Across scans" icon={ShieldCheckIcon} color="bg-accent/70" />
+        <StatCard title="Recent Activity" value={`${Math.min(totalScans, 5)} scans`} subtext="Latest runs" icon={ChartBarSquareIcon} color="bg-white/10" />
       </div>
 
       <div className="grid lg:grid-cols-3 gap-4">
