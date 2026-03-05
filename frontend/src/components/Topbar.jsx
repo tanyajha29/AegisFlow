@@ -1,5 +1,5 @@
 import React from 'react';
-import { BellIcon, MagnifyingGlassIcon, Bars3Icon } from '@heroicons/react/24/outline';
+import { BellIcon, MagnifyingGlassIcon, Bars3Icon, EyeIcon } from '@heroicons/react/24/outline';
 import { motion } from 'framer-motion';
 
 const Topbar = ({ onToggleSidebar }) => {
@@ -23,8 +23,8 @@ const Topbar = ({ onToggleSidebar }) => {
           <BellIcon className="h-5 w-5 text-slate-200" />
           <span className="absolute top-1 right-1 h-2 w-2 bg-accent rounded-full animate-pulse" />
         </motion.button>
-        <div className="h-11 w-11 rounded-xl bg-gradient-to-br from-cyber to-accent flex items-center justify-center text-white font-semibold">
-          CS
+        <div className="h-11 w-11 rounded-xl bg-gradient-to-br from-cyber to-accent flex items-center justify-center text-white">
+          <EyeIcon className="h-6 w-6" />
         </div>
       </div>
     </header>

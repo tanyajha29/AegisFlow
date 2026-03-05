@@ -1,7 +1,7 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
 import {
-  ShieldCheckIcon,
+  EyeIcon,
   HomeModernIcon,
   CodeBracketSquareIcon,
   ArrowUpOnSquareStackIcon,
@@ -33,11 +33,11 @@ const Sidebar = ({ collapsed, onToggle }) => {
       <div className="flex items-center justify-between px-5 py-5">
         <div className="flex items-center gap-2">
           <div className="h-10 w-10 rounded-2xl bg-gradient-to-br from-cyber to-accent flex items-center justify-center shadow-glow">
-            <ShieldCheckIcon className="h-6 w-6 text-white" />
+            <EyeIcon className="h-6 w-6 text-white" />
           </div>
           <div>
-            <p className="text-white font-semibold">CodeShield</p>
-            <p className="text-xs text-slate-400">Secure your code</p>
+            <p className="text-white font-semibold">DristiScan</p>
+            <p className="text-xs text-slate-400">See the risks early</p>
           </div>
         </div>
         <button className="md:hidden text-slate-400" onClick={onToggle}>✕</button>
