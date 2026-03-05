@@ -1,42 +1,47 @@
 import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from './context/AuthContext.jsx';
-import Navbar from './components/Navbar.jsx';
-import Login from './pages/Login.jsx';
-import Register from './pages/Register.jsx';
-import Dashboard from './pages/Dashboard.jsx';
-import ScanReport from './pages/ScanReport.jsx';
 
-const ProtectedRoute = ({ children }) => {
+import Login from './pages/Login.jsx';
+import Dashboard from './pages/Dashboard.jsx';
+import Scan from './pages/Scan.jsx';
+import Results from './pages/Results.jsx';
+import Reports from './pages/Reports.jsx';
+import History from './pages/History.jsx';
+import Settings from './pages/Settings.jsx';
+import Layout from './components/Layout.jsx';
+
+const Protected = ({ children }) => {
   const { user } = useAuth();
-  if (!user) {
-    return <Navigate to="/login" replace />;
-  }
-  return children;
+  return user ? children : <Navigate to="/login" replace />;
 };
 
 const App = () => {
   const { user } = useAuth();
+
   return (
-    <div className="min-h-screen bg-darker text-slate-200">
-      {user && <Navbar />}
-      <div className={user ? "pt-16" : ""}>
-        {/* Adds top padding for fixed navbar if logged in */}
-        <Routes>
-          <Route path="/login" element={!user ? <Login /> : <Navigate to="/" />} />
-          <Route path="/register" element={!user ? <Register /> : <Navigate to="/" />} />
-          <Route path="/" element={
-            <ProtectedRoute>
-              <Dashboard />
-            </ProtectedRoute>
-          } />
-          <Route path="/report/:id" element={
-            <ProtectedRoute>
-              <ScanReport />
-            </ProtectedRoute>
-          } />
-        </Routes>
-      </div>
+    <div className="min-h-screen bg-navy text-slate-100">
+      <Routes>
+        <Route path="/login" element={user ? <Navigate to="/" replace /> : <Login />} />
+        <Route
+          path="/*"
+          element={
+            <Protected>
+              <Layout>
+                <Routes>
+                  <Route index element={<Dashboard />} />
+                  <Route path="scan" element={<Scan />} />
+                  <Route path="results" element={<Results />} />
+                  <Route path="reports" element={<Reports />} />
+                  <Route path="history" element={<History />} />
+                  <Route path="settings" element={<Settings />} />
+                  <Route path="*" element={<Navigate to="/" replace />} />
+                </Routes>
+              </Layout>
+            </Protected>
+          }
+        />
+      </Routes>
     </div>
   );
 };
