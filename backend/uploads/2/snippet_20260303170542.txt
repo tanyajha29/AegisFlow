@@ -1,7 +1,0 @@
-import os
-
-# User input is taken directly from the prompt
-ip_address = input("Enter an IP address to ping: ")
-
-# INSECURE: The input is concatenated directly into a shell command
-os.system("ping -c 4 " + ip_address)

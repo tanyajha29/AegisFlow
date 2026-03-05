@@ -1,2 +1,0 @@
-// VULNERABLE CODE (String Concatenation)
-string query = "SELECT * FROM users WHERE username = '" + username + "' AND password = '" + password + "';";
