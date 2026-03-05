@@ -14,9 +14,17 @@ DEFAULT_RULES = [
     {
         "name": "Command Injection",
         "severity": "High",
-        "pattern": r"(os\.system|subprocess\.Popen|subprocess\.call).*\+.*",
-        "description": "Concatenating user input into shell commands is unsafe.",
-        "remediation": "Avoid shell=True; validate inputs; use parameter arrays.",
+        "pattern": r"(os\.system\s*\(|subprocess\.(Popen|call|run)\s*\().*",
+        "description": "Executing shell commands can be unsafe, especially with user-controlled input.",
+        "remediation": "Avoid shell execution; use parameter arrays and sanitize inputs.",
+        "cwe_reference": "CWE-78",
+    },
+    {
+        "name": "User Input in Command",
+        "severity": "Critical",
+        "pattern": r"os\.system\s*\(\s*(input\(|request\.|sys\.argv|args\[)",
+        "description": "User input flows directly into a system command, enabling command injection.",
+        "remediation": "Do not pass raw input into os.system; validate and use safer libraries.",
         "cwe_reference": "CWE-78",
     },
     {
