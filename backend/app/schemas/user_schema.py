@@ -18,7 +18,7 @@ class UserProfile(BaseModel):
     created_at: datetime
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 class Token(BaseModel):
@@ -29,4 +29,3 @@ class Token(BaseModel):
 class TokenData(BaseModel):
     user_id: int | None = None
     email: EmailStr | None = None
-

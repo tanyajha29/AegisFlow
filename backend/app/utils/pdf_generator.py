@@ -1,6 +1,3 @@
-from io import BytesIO
-from typing import List
-
 from fpdf import FPDF
 
 from ..schemas.report_schema import Report
@@ -27,6 +24,8 @@ def generate_pdf(report: Report) -> bytes:
     pdf.cell(0, 8, f"File: {report.file_name}", ln=True)
     pdf.cell(0, 8, f"Scan Date: {report.scan_date}", ln=True)
     pdf.cell(0, 8, f"Risk Score: {report.risk_score}", ln=True)
+    if report.risk_level:
+        pdf.cell(0, 8, f"Risk Level: {report.risk_level}", ln=True)
     pdf.cell(0, 8, f"Total Vulnerabilities: {report.total_vulnerabilities}", ln=True)
     pdf.ln(4)
 
@@ -44,7 +43,4 @@ def generate_pdf(report: Report) -> bytes:
             pdf.multi_cell(0, 6, f"Snippet: {vuln.code_snippet}")
         pdf.ln(2)
 
-    buffer = BytesIO()
-    pdf.output(buffer)
-    return buffer.getvalue()
-
+    return pdf.output(dest="S")

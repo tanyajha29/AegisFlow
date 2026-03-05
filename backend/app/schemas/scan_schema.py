@@ -32,7 +32,7 @@ class VulnerabilityOut(VulnerabilityBase):
     id: int
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 class ScanResult(BaseModel):
@@ -40,6 +40,7 @@ class ScanResult(BaseModel):
     file_name: str
     risk_score: float
     total_issues: int
+    risk_level: str | None = None
     vulnerabilities: List[VulnerabilityOut | VulnerabilityBase]
 
 
@@ -51,5 +52,4 @@ class ScanHistoryItem(BaseModel):
     total_issues: int
 
     class Config:
-        orm_mode = True
-
+        from_attributes = True
