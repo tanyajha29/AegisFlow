@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 from ..models.scan_model import Scan
 from ..schemas.report_schema import Report
 from .risk_engine import risk_level
+from .ai_summary import generate_ai_insight
 
 
 THEME_BG = colors.HexColor("#0d1117")
@@ -205,6 +206,7 @@ def _remediation_summary(report: Report, styles):
 
 def get_report_pdf(db: Session, scan_id: int) -> bytes:
     report = get_report(db, scan_id)
+    ai_insight = generate_ai_insight(report)
     buffer = BytesIO()
     styles = _build_styles()
     doc = SimpleDocTemplate(buffer, pagesize=letter, leftMargin=36, rightMargin=36, topMargin=48, bottomMargin=48)
@@ -220,6 +222,10 @@ def get_report_pdf(db: Session, scan_id: int) -> bytes:
 
     story.extend(_exec_summary(report, styles))
     story.extend(_scan_information(report, styles))
+    if ai_insight:
+        story.append(Paragraph("AI Executive Insight", styles["Heading"]))
+        story.append(Paragraph(ai_insight.replace("\n", "<br/>"), styles["Body"]))
+        story.append(Spacer(1, 12))
     story.extend(_findings_section(report, styles))
     story.append(PageBreak())
     story.extend(_remediation_summary(report, styles))
