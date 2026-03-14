@@ -37,8 +37,6 @@ services:
     container_name: drishti_scan_frontend
     ports:
       - "5173:5173"
-    environment:
-      - VITE_API_BASE_URL=http://localhost:8000
     volumes:
       - ./frontend:/app
       - /app/node_modules

@@ -1,14 +1,17 @@
 import React, { useEffect, useState } from 'react';
 import { ArrowDownTrayIcon } from '@heroicons/react/24/outline';
 import GlassCard from '../components/GlassCard.jsx';
-import SeverityBadge from '../components/SeverityBadge.jsx';
 import ProgressBar from '../components/ProgressBar.jsx';
 import { useScan } from '../context/ScanContext.jsx';
+import ResultsFilter from '../components/ResultsFilter.jsx';
+import VulnerabilityList from '../components/VulnerabilityList.jsx';
 
 const Results = () => {
   const { lastResult } = useScan();
   const [downloading, setDownloading] = useState(false);
   const [toast, setToast] = useState(null);
+  const [selectedSeverity, setSelectedSeverity] = useState(null);
+  const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
     if (!toast) return;
@@ -130,39 +133,18 @@ const Results = () => {
           </ul>
         </GlassCard>
       </div>
+      <ResultsFilter
+        selectedSeverity={selectedSeverity}
+        onSeverityChange={setSelectedSeverity}
+        searchTerm={searchTerm}
+        onSearchChange={setSearchTerm}
+      />
 
-      <div className="space-y-3">
-        {severities.length === 0 && (
-          <GlassCard className="p-4 text-slate-300">No vulnerabilities detected in this scan.</GlassCard>
-        )}
-        {severities.map((v, idx) => (
-          <GlassCard key={idx} className="p-4 hover:border-accent/40 transition">
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-              <div>
-                <div className="flex items-center gap-3">
-                  <p className="text-lg font-semibold text-white">{v.name}</p>
-                  <SeverityBadge level={v.severity} />
-                </div>
-                <p className="text-xs text-slate-500">
-                  {v.file_name} - line {v.line_number ?? '--'}
-                </p>
-              </div>
-            </div>
-            <div className="mt-3 grid md:grid-cols-2 gap-3 text-sm">
-              <div className="bg-white/5 rounded-xl p-3">
-                <p className="text-slate-300 mb-1">Code Snippet</p>
-                <pre className="text-xs font-mono text-slate-200 whitespace-pre-wrap">{v.code_snippet || 'N/A'}</pre>
-              </div>
-              <div className="space-y-1">
-                <p className="text-slate-300">Explanation</p>
-                <p className="text-slate-400 text-sm">{v.description}</p>
-                <p className="text-slate-300 mt-2">Remediation</p>
-                <p className="text-slate-400 text-sm">{v.remediation}</p>
-              </div>
-            </div>
-          </GlassCard>
-        ))}
-      </div>
+      <VulnerabilityList
+        vulnerabilities={severities}
+        severity={selectedSeverity}
+        search={searchTerm}
+      />
     </div>
   );
 };
