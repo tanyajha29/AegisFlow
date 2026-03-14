@@ -62,3 +62,7 @@ def run_scan(file_name: str, content: str) -> Dict[str, Any]:
         "rules_applied": len(_rule_engine.rules),
         "summary": summary_payload,
     }
+
+
+def get_rule_count() -> int:
+    return len(_rule_engine.rules)

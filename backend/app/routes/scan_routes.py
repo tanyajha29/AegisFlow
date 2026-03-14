@@ -7,7 +7,7 @@ from ..middleware.auth_middleware import get_current_user
 from ..models.scan_model import Scan
 from ..models.vulnerability_model import Vulnerability
 from ..schemas.scan_schema import CodeScanRequest, RepoScanRequest, ScanResult, VulnerabilityOut
-from ..services.scan_service import run_scan, _rule_engine
+from ..services.scan_service import run_scan, get_rule_count
 from ..services.github_service import fetch_repository_sources
 from ..services.risk_engine import risk_level
 from ..utils.file_handler import save_code_as_file, save_upload_file, cleanup_file
@@ -145,7 +145,7 @@ async def scan_repository(
         "risk_score": risk,
         "security_score": max(0, 100 - risk),
         "scan_engine": "DristiScan Orchestrator v2 (repo)",
-        "rules_applied": len(getattr(_rule_engine, "rules", [])),
+        "rules_applied": get_rule_count(),
         "summary": {
             "total": total,
             "critical": counts.get("Critical", 0),
