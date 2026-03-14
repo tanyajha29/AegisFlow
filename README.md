@@ -1,17 +1,15 @@
 # DristiScan – Cloud Code Security Scanner
 
-A full-stack SaaS for scanning source code and dependencies, classifying vulnerabilities, and delivering PDF/JSON reports. Built with FastAPI + PostgreSQL + React (Vite) + Tailwind.
+Full-stack SaaS for scanning source code, dependencies, and entire GitHub repositories, classifying vulnerabilities, and exporting PDF/JSON reports. Built with FastAPI + PostgreSQL + React (Vite) + Tailwind + Framer Motion, with optional local AI analysis via Ollama.
 
 ---
 
 ## Architecture
-- **Frontend**: React (Vite), Tailwind, Chart.js, Framer Motion. Communicates with backend via REST.
-- **Backend**: FastAPI, SQLAlchemy, Pydantic Settings, JWT auth, PDF reports (fpdf2).
+- **Frontend**: React (Vite), Tailwind, Chart.js, Framer Motion, lucide-react icons. REST to backend.
+- **Backend**: FastAPI, SQLAlchemy, Pydantic Settings, JWT auth, reportlab PDF; optional AI via Ollama.
 - **DB**: PostgreSQL.
 - **Containers**: Docker Compose orchestrates `backend`, `frontend`, `db`.
-- **Background**: FastAPI background tasks (simple) for cleanup; scanners are modular (SAST, secrets, dependencies).
-
----
+- **Pipeline**: Rule engine (100+ regex rules) → SAST → secrets → dependency advisories → optional Semgrep/Bandit → optional Ollama AI → risk scoring.
 
 ## Repo Structure
 ```
@@ -23,83 +21,71 @@ backend/
     models/                # users, scans, vulnerabilities
     routes/                # auth, scan, reports
     scanners/              # sast, secrets, dependency rules
-    services/              # scanner orchestration, risk, reports
+    services/              # scanner orchestration, risk, reports, github fetch
     utils/                 # JWT, files, pdf, rate limiter
 frontend/
   src/
     App.jsx                # Routes
     context/               # Auth + Scan contexts
     pages/                 # Dashboard, Scan, Results, Reports, History, Settings, Login
-    components/            # Layout, cards, charts, editor panel, badges
+    components/            # Layout, cards, charts, scan tabs/progress, filters, vuln list
 docker-compose.yml
 ```
 
----
-
 ## Prerequisites
 - Docker + Docker Compose **or** Python 3.11+ and Node 18+ with PostgreSQL.
-
----
+- Optional: Ollama running locally (defaults to `http://localhost:11434`) for AI findings.
 
 ## Quick Start (Docker)
 ```bash
 docker-compose up --build
-# Frontend: http://localhost:5173
+# Frontend: http://localhost:5173   (or your WSL IP)
 # Backend:  http://localhost:8000
 # API docs: http://localhost:8000/docs
 ```
-
----
+If using WSL2 + Docker, set `VITE_API_BASE_URL=http://<wsl-ip>:8000` and open `http://<wsl-ip>:5173`.
 
 ## Backend: Local (without Compose)
 ```bash
 cd backend
 python -m venv .venv
-source .venv/Scripts/activate  # Windows Git Bash/PowerShell adjusted
+source .venv/Scripts/activate  # PowerShell/Git Bash adjust
 pip install -r requirements.txt
 
-# required env (override defaults as needed)
+# required env
 set DATABASE_URL=postgresql://admin:adminpassword@localhost:5432/drishtiscan
 set SECRET_KEY=your-secret
 set ACCESS_TOKEN_EXPIRE_MINUTES=60
+set GITHUB_TOKEN=your-github-token   # recommended for repo scans
+set OLLAMA_URL=http://localhost:11434
 
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
-
-### Environment Variables (backend)
-- `DATABASE_URL` (required) e.g. `postgresql://admin:adminpassword@db:5432/drishtiscan`
-- `SECRET_KEY` (required for JWT)
-- `ALGORITHM` (default HS256)
-- `ACCESS_TOKEN_EXPIRE_MINUTES` (default 60)
-- `UPLOAD_DIR`, `MAX_UPLOAD_SIZE_MB`, `ALLOWED_FILE_TYPES` (optional)
-
----
 
 ## Frontend: Local (without Compose)
 ```bash
 cd frontend
-npm install
+npm ci --legacy-peer-deps
 VITE_API_BASE_URL=http://localhost:8000 npm run dev
 # Open http://localhost:5173
 ```
 
----
+### Environment Variables (backend)
+- `DATABASE_URL` (required) e.g. `postgresql://admin:adminpassword@db:5432/drishtiscan`
+- `SECRET_KEY` or `JWT_SECRET_KEY` (required for JWT)
+- `ALGORITHM` (default HS256)
+- `ACCESS_TOKEN_EXPIRE_MINUTES` (default 60)
+- `GITHUB_TOKEN` (recommended for repo scans)
+- `OLLAMA_URL` (default `http://localhost:11434`)
+- `UPLOAD_DIR`, `MAX_UPLOAD_SIZE_MB`, `ALLOWED_FILE_TYPES` (optional)
 
 ## Core API Endpoints
-- **Auth**
-  - `POST /auth/register` – `{email, password}`
-  - `POST /auth/login` – `{email, password}` → `access_token`
-  - `GET /auth/profile` – Bearer token
-- **Scan**
-  - `POST /scan/code` – `{ code, file_name }`
-  - `POST /scan/upload` – multipart `file`
-- **Reports**
-  - `GET /reports/{scan_id}`
-  - `GET /reports/{scan_id}/pdf`
-  - `GET /reports/history`
+- **Auth**: `POST /auth/register`, `POST /auth/login`, `GET /auth/profile`
+- **Scan**: `POST /scan/code`, `POST /scan/upload`, `POST /scan/repo`
+- **Reports**: `GET /reports/history`, `GET /reports/{scan_id}`, `GET /reports/{scan_id}/pdf`
 - **Health**: `GET /health`
 
-### Example (curl)
+### Examples
 ```bash
 TOKEN=$(curl -s -X POST http://localhost:8000/auth/login \
   -H "Content-Type: application/json" \
@@ -111,44 +97,30 @@ curl -X POST http://localhost:8000/scan/code \
   -d '{"code":"import os\nos.system(input())","file_name":"demo.py"}'
 ```
 
----
-
 ## Frontend Walkthrough
-- **Login/Signup**: DristiScan branding with eye icon.
+- **Scan**: Animated tabs for code paste, file upload, and GitHub repo scan (`/scan/repo`); live progress panel.
+- **Results**: Severity filters + search, animated vulnerability list, PDF download.
+- **Reports**: Animated list with inline PDF download.
 - **Dashboard**: Live stats from `/reports/history` (totals, avg score, severity pie, score trend).
-- **Scan**: Paste code or upload file; uses `/scan/code` or `/scan/upload`; progress + error hints.
-- **Results**: Shows last scan, risk score/level, severity breakdown, and vulnerability cards.
-- **History & Reports**: Pulls `/reports/history`; report rows show score/issues; PDF/JSON endpoints available.
-- **Settings**: Profile stub, API key placeholder, theme toggles.
-
----
+- **History/Settings**: History table; settings stub for profile/API key.
 
 ## Scanners (backend)
-- **SAST**: regex rules for SQLi, command injection, eval/exec, file access, DOM XSS.
+- **Rule engine**: 100+ regex rules in `backend/rules/vulnerability_rules.json`.
+- **SAST**: heuristics for SQLi, command injection, eval/exec, file access, DOM XSS.
 - **Secrets**: AWS keys, generic tokens, private keys, JWTs.
-- **Dependencies**: `requirements.txt` / `package.json` minimal advisory examples.
-- **Risk**: Weighted severity → score (100 - points) + risk level bands.
+- **Dependencies**: minimal advisories for common packages.
+- **AI (optional)**: Ollama (`codellama` by default) adds an “AI Security Review” finding.
+- **Risk**: Weighted severity → score (100 - points) + risk bands.
 
----
+## Repo Scanning
+- `POST /scan/repo` with `{ "repo_url": "https://github.com/user/repo" }`
+- Uses GitHub API + `GITHUB_TOKEN` to fetch supported files (py/js/ts/java/go/php/rb/c/cpp), scans all files, aggregates findings.
 
 ## Development Tips
-- Update dependencies: `pip install -r backend/requirements.txt` and `npm install` (frontend).
+- Update deps: `pip install -r backend/requirements.txt` and `npm ci --legacy-peer-deps` (frontend).
 - Clean uploads: backend stores temp files under `backend/uploads` (auto cleanup via background task).
-- Logs: backend logs requests/errors; check `docker logs drishti_scan_backend`.
-- If DB schema drifts, drop volumes: `docker-compose down -v && docker-compose up --build`.
-
----
-
-## Thunder Client / Postman Quick Import
-Use base URL `http://localhost:8000` and sequence:
-1) POST /auth/register
-2) POST /auth/login → save `token`
-3) GET /auth/profile (Bearer)
-4) POST /scan/code (Bearer)
-5) GET /reports/{scan_id} (Bearer)
-6) GET /reports/history (Bearer)
-
----
+- Logs: `docker logs drishti_scan_backend` / `drishti_scan_frontend` for containerized runs.
+- If DB schema drifts, `docker-compose down -v && docker-compose up --build`.
 
 ## Production Checklist
 - Use managed Postgres + proper credentials/rotation.
@@ -157,8 +129,6 @@ Use base URL `http://localhost:8000` and sequence:
 - Add Alembic migrations before schema changes.
 - Externalize rate limiting (Redis) and storage (S3) for uploads.
 - Hook scanners to real vulnerability feeds (e.g., OSV) and SAST engines.
-
----
 
 ## Licensing / Contributions
 Internal project; open a PR or issue for changes. Provide logs and reproduction steps for bugs.
