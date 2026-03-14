@@ -9,7 +9,7 @@ const History = () => {
 
   useEffect(() => {
     api
-      .get('/reports/history')
+      .get('/api/reports/history')
       .then((res) => setEntries(res.data.reports || []))
       .finally(() => setLoading(false));
   }, []);

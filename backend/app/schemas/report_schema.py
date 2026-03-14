@@ -11,6 +11,11 @@ class Report(BaseModel):
     scan_date: datetime
     total_vulnerabilities: int
     risk_score: float
+    security_score: float | None = None
+    critical_count: int | None = None
+    high_count: int | None = None
+    medium_count: int | None = None
+    low_count: int | None = None
     risk_level: str | None = None
     vulnerabilities: List[VulnerabilityOut]
 

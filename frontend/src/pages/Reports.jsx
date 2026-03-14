@@ -9,7 +9,7 @@ const Reports = () => {
 
   useEffect(() => {
     api
-      .get('/reports/history')
+      .get('/api/reports/history')
       .then((res) => setRows(res.data.reports || []))
       .finally(() => setLoading(false));
   }, []);

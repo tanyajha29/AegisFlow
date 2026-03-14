@@ -35,12 +35,31 @@ class VulnerabilityOut(VulnerabilityBase):
         from_attributes = True
 
 
+class ScanSummary(BaseModel):
+    total: int
+    critical: int
+    high: int
+    medium: int
+    low: int
+    risk_score: float
+    security_score: float
+
+
 class ScanResult(BaseModel):
     scan_id: int
     file_name: str
     risk_score: float
-    total_issues: int
+    security_score: float
+    total_findings: int
+    critical_count: int
+    high_count: int
+    medium_count: int
+    low_count: int
+    total_issues: int | None = None
     risk_level: str | None = None
+    scan_engine: str | None = None
+    rules_applied: int | None = None
+    summary: ScanSummary | None = None
     vulnerabilities: List[VulnerabilityOut | VulnerabilityBase]
 
 
@@ -49,6 +68,8 @@ class ScanHistoryItem(BaseModel):
     file_name: str
     scan_date: datetime
     risk_score: float
+    security_score: float | None = None
+    total_findings: int | None = None
     total_issues: int
 
     class Config:

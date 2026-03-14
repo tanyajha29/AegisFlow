@@ -19,7 +19,7 @@ const Dashboard = () => {
   useEffect(() => {
     import('../lib/api.js').then(({ default: api }) => {
       api
-        .get('/reports/history')
+        .get('/api/reports/history')
         .then((res) => setHistory(res.data.reports || []))
         .finally(() => setLoading(false));
     });
@@ -27,7 +27,14 @@ const Dashboard = () => {
 
   const totalScans = history.length;
   const totalIssues = history.reduce((sum, r) => sum + (r.total_vulnerabilities || 0), 0);
-  const avgScore = totalScans ? Math.round(history.reduce((s, r) => s + (r.risk_score || 0), 0) / totalScans) : 0;
+  const avgScore = totalScans
+    ? Math.round(
+        history.reduce(
+          (s, r) => s + (r.security_score ?? Math.max(0, 100 - (r.risk_score || 0))),
+          0
+        ) / totalScans
+      )
+    : 0;
 
   const severityCounts = history.reduce(
     (acc, r) => {
@@ -55,7 +62,9 @@ const Dashboard = () => {
     datasets: [
       {
         label: 'Security Score',
-        data: history.slice(-6).map((r) => r.risk_score || 0),
+        data: history
+          .slice(-6)
+          .map((r) => r.security_score ?? Math.max(0, 100 - (r.risk_score || 0))),
         borderColor: '#22D3EE',
         backgroundColor: 'rgba(34,211,238,0.15)',
         tension: 0.35,

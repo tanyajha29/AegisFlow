@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Response
+from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from starlette.responses import StreamingResponse
 
@@ -27,8 +27,13 @@ def history(db: Session = Depends(get_db), current_user=Depends(get_current_user
             scan_id=s.id,
             file_name=s.file_name,
             scan_date=s.scan_date,
-            total_vulnerabilities=s.total_issues,
+            total_vulnerabilities=s.total_findings,
             risk_score=s.risk_score,
+            security_score=s.security_score,
+            critical_count=s.critical_count,
+            high_count=s.high_count,
+            medium_count=s.medium_count,
+            low_count=s.low_count,
             risk_level=risk_level(s.risk_score),
             vulnerabilities=list(s.vulnerabilities),
         )
@@ -44,9 +49,11 @@ def fetch_report(scan_id: int, db: Session = Depends(get_db), current_user=Depen
 
 @router.get("/{scan_id}/pdf")
 def fetch_report_pdf(scan_id: int, db: Session = Depends(get_db), current_user=Depends(get_current_user)):
+    report = get_report(db, scan_id)
     pdf_bytes = get_report_pdf(db, scan_id)
+    filename = f"DristiScan_Report_{report.file_name}_{report.scan_date.strftime('%Y%m%d')}.pdf"
     return StreamingResponse(
         iter([pdf_bytes]),
         media_type="application/pdf",
-        headers={"Content-Disposition": f'attachment; filename="scan-{scan_id}-report.pdf"'},
+        headers={"Content-Disposition": f'attachment; filename=\"{filename}\"'},
     )

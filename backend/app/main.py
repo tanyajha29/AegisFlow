@@ -52,6 +52,7 @@ async def unhandled_exception_handler(request: Request, exc: Exception):
 app.include_router(auth_routes.router, dependencies=[Depends(rate_limiter)])
 app.include_router(scan_routes.router, dependencies=[Depends(rate_limiter)])
 app.include_router(report_routes.router, dependencies=[Depends(rate_limiter)])
+app.include_router(report_routes.router, prefix="/api", dependencies=[Depends(rate_limiter)])
 
 
 @app.get("/health", tags=["meta"])
