@@ -156,10 +156,15 @@ DristiScan can optionally use a local Ollama model to add:
 - Suspicious code pattern analysis
 
 ## UI Preview
+### Dashboard
 ![Dashboard](docs/screens/ui-screen-1.png)
+### Scaning Page
 ![Scan Workspace](docs/screens/ui-screen-2.png)
+### Scan Results
 ![Scan Progress](docs/screens/ui-screen-3.png)
+### Scan History
 ![Results & Filters](docs/screens/ui-screen-4.png)
+### Reports
 ![Reports Download](docs/screens/ui-screen-5.png)
 
 ## Frontend Walkthrough
