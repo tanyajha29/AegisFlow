@@ -1,2 +1,6 @@
 
 .builder/config/data.json
+
+# Local vulnerable test snippets (do not commit)
+vuln-samples/
+!vuln-samples/.gitkeep

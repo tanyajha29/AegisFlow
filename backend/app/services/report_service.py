@@ -29,9 +29,21 @@ SEVERITY_COLORS = {
 
 def _build_styles():
     styles = getSampleStyleSheet()
-    styles.add(ParagraphStyle(name="Title", fontSize=22, leading=26, textColor=TEXT, spaceAfter=12))
-    styles.add(ParagraphStyle(name="Heading", fontSize=16, leading=20, textColor=TEXT, spaceAfter=8))
-    styles.add(ParagraphStyle(name="Body", fontSize=11, leading=14, textColor=TEXT))
+    if "ReportTitle" not in styles:
+        styles.add(
+          ParagraphStyle(
+            name="ReportTitle",
+            parent=styles["Title"],
+            fontSize=22,
+            leading=26,
+            textColor=TEXT,
+            spaceAfter=12,
+          )
+        )
+    if "Heading" not in styles:
+        styles.add(ParagraphStyle(name="Heading", fontSize=16, leading=20, textColor=TEXT, spaceAfter=8))
+    if "Body" not in styles:
+        styles.add(ParagraphStyle(name="Body", fontSize=11, leading=14, textColor=TEXT))
     styles.add(
         ParagraphStyle(
             name="Badge",
@@ -86,6 +98,7 @@ def get_report(db: Session, scan_id: int) -> Report:
     return Report(
         scan_id=scan.id,
         file_name=scan.file_name,
+        display_file_name=scan.file_name,
         scan_date=scan.scan_date,
         total_vulnerabilities=getattr(scan, "total_findings", 0),
         risk_score=getattr(scan, "risk_score", 0.0),
@@ -213,7 +226,7 @@ def get_report_pdf(db: Session, scan_id: int) -> bytes:
 
     story = []
     # Cover page
-    story.append(Paragraph("DristiScan Security Report", styles["Title"]))
+    story.append(Paragraph("DristiScan Security Report", styles["ReportTitle"]))
     story.append(Paragraph(f"File: {report.file_name}", styles["Body"]))
     story.append(Paragraph(f"Date: {datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')}", styles["Body"]))
     story.append(Spacer(1, 12))

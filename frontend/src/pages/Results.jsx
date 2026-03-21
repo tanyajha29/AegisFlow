@@ -5,6 +5,7 @@ import ProgressBar from '../components/ProgressBar.jsx';
 import { useScan } from '../context/ScanContext.jsx';
 import ResultsFilter from '../components/ResultsFilter.jsx';
 import VulnerabilityList from '../components/VulnerabilityList.jsx';
+import AgentPanel from '../components/AgentPanel.jsx';
 
 const Results = () => {
   const { lastResult } = useScan();
@@ -28,6 +29,9 @@ const Results = () => {
   }
 
   const severities = lastResult.vulnerabilities || [];
+  const agentsUsed = lastResult.ai_agents_used || [];
+  const aiLogs = lastResult.ai_logs || [];
+  const displayName = lastResult.display_file_name || lastResult.original_file_name || lastResult.file_name;
   const securityScore = lastResult.security_score ?? Math.max(0, 100 - (lastResult.risk_score ?? 0));
   const band =
     securityScore >= 80
@@ -50,7 +54,7 @@ const Results = () => {
       const a = document.createElement('a');
       const stamp = new Date().toISOString().slice(0, 10);
       a.href = url;
-      a.download = `DristiScan_Report_${lastResult.file_name || 'scan'}_${stamp}.pdf`;
+      a.download = `DristiScan_Report_${displayName || 'scan'}_${stamp}.pdf`;
       document.body.appendChild(a);
       a.click();
       a.remove();
@@ -77,8 +81,19 @@ const Results = () => {
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
         <div>
           <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Scan Results</p>
-          <h1 className="text-3xl font-semibold text-white">Findings for {lastResult.file_name}</h1>
-          <p className="text-slate-500 text-sm">Security score and remediation-ready details.</p>
+          <div className="text-3xl font-semibold text-white leading-tight">
+            <div className="text-base text-slate-400 mb-1">Findings for</div>
+            <div>{displayName}</div>
+          </div>
+          <div className="flex flex-wrap gap-3 text-xs text-slate-400 mt-2">
+            <span className="px-2 py-1 rounded-md border border-border bg-white/5">Scan ID: {lastResult.scan_id}</span>
+            <span className="px-2 py-1 rounded-md border border-border bg-white/5">
+              Risk: {lastResult.risk_level || band.label}
+            </span>
+            <span className="px-2 py-1 rounded-md border border-border bg-white/5">
+              Generated: {new Date().toLocaleString()}
+            </span>
+          </div>
         </div>
         <button
           type="button"
@@ -133,6 +148,7 @@ const Results = () => {
           </ul>
         </GlassCard>
       </div>
+      <AgentPanel agentsUsed={agentsUsed} logs={aiLogs} />
       <ResultsFilter
         selectedSeverity={selectedSeverity}
         onSeverityChange={setSelectedSeverity}

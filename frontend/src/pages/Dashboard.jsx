@@ -16,6 +16,14 @@ const Dashboard = () => {
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  const computeScore = (report) => {
+    if (typeof report?.security_score === 'number') return report.security_score;
+    if (typeof report?.risk_score === 'number') return Math.max(0, 100 - report.risk_score);
+    const sevWeights = { Critical: 25, High: 15, Medium: 8, Low: 2 };
+    const risk = (report?.vulnerabilities || []).reduce((acc, v) => acc + (sevWeights[v.severity] || 0), 0);
+    return Math.max(0, 100 - risk);
+  };
+
   useEffect(() => {
     import('../lib/api.js').then(({ default: api }) => {
       api
@@ -25,15 +33,13 @@ const Dashboard = () => {
     });
   }, []);
 
-  const totalScans = history.length;
-  const totalIssues = history.reduce((sum, r) => sum + (r.total_vulnerabilities || 0), 0);
+  const sortedHistory = [...history].sort(
+    (a, b) => new Date(a.scan_date || 0) - new Date(b.scan_date || 0)
+  );
+  const totalScans = sortedHistory.length;
+  const totalIssues = sortedHistory.reduce((sum, r) => sum + (r.total_vulnerabilities || 0), 0);
   const avgScore = totalScans
-    ? Math.round(
-        history.reduce(
-          (s, r) => s + (r.security_score ?? Math.max(0, 100 - (r.risk_score || 0))),
-          0
-        ) / totalScans
-      )
+    ? Math.round(sortedHistory.reduce((s, r) => s + computeScore(r), 0) / totalScans)
     : 0;
 
   const severityCounts = history.reduce(
@@ -57,14 +63,13 @@ const Dashboard = () => {
     ],
   };
 
+  const recent = sortedHistory.slice(-6);
   const scoreData = {
-    labels: history.slice(-6).map((r) => `#${r.scan_id}`),
+    labels: recent.map((r) => `#${r.scan_id}`),
     datasets: [
       {
         label: 'Security Score',
-        data: history
-          .slice(-6)
-          .map((r) => r.security_score ?? Math.max(0, 100 - (r.risk_score || 0))),
+        data: recent.map((r) => computeScore(r)),
         borderColor: '#22D3EE',
         backgroundColor: 'rgba(34,211,238,0.15)',
         tension: 0.35,
@@ -101,7 +106,16 @@ const Dashboard = () => {
           <Pie data={severityData} options={{ plugins: { legend: { position: 'bottom', labels: { color: '#cbd5e1' } } } }} />
         </ChartCard>
         <ChartCard title="Security Score Trend">
-          <Line data={scoreData} options={{ plugins: { legend: { display: false } }, scales: { x: { ticks: { color: '#cbd5e1' } }, y: { ticks: { color: '#cbd5e1' }, min: 50, max: 100 } } }} />
+          <Line
+            data={scoreData}
+            options={{
+              plugins: { legend: { display: false } },
+              scales: {
+                x: { ticks: { color: '#cbd5e1' } },
+                y: { ticks: { color: '#cbd5e1' }, suggestedMin: 0, suggestedMax: 100 },
+              },
+            }}
+          />
         </ChartCard>
         <ChartCard title="Vulnerability Types">
           <Bar data={typeData} options={{ plugins: { legend: { display: false } }, scales: { x: { ticks: { color: '#cbd5e1' } }, y: { ticks: { color: '#cbd5e1' } } } }} />

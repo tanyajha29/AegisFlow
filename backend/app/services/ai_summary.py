@@ -6,6 +6,7 @@ import httpx
 
 from ..config import get_settings
 from ..schemas.report_schema import Report
+from app.agents.orchestrator import run_report_agent_if_enabled
 
 logger = logging.getLogger("dristi-scan")
 settings = get_settings()
@@ -30,11 +31,33 @@ def _format_top_findings(report: Report, limit: int = 5) -> str:
     return "\n".join(lines) or "- No specific findings provided."
 
 
+def _report_agent_insight(report: Report) -> Optional[str]:
+    res = run_report_agent_if_enabled(report)
+    if not res or not res.findings:
+        return None
+    parts = []
+    for f in res.findings:
+        parts.append(f"{f.title}: {f.description}")
+        if f.remediation:
+            parts.append(f"Remediation: {f.remediation}")
+    return textwrap.shorten("\n".join(parts), width=1200, placeholder=" …")
+
+
 def generate_ai_insight(report: Report) -> Optional[str]:
-    """Return a short AI-generated executive insight using Ollama; fallback to None on failure."""
+    """
+    Return a short AI-generated executive insight.
+    Prefers structured Report Agent; falls back to legacy Ollama prompt if disabled/unavailable.
+    """
+    try:
+        ai_summary = _report_agent_insight(report)
+        if ai_summary:
+            return ai_summary
+    except Exception as exc:
+        logger.warning("Report Agent insight failed, falling back: %s", exc)
+
     ollama_url = str(settings.ollama_url).rstrip("/")
     payload = {
-        "model": "codellama",
+        "model": settings.ollama_model,
         "prompt": DEFAULT_PROMPT.format(
             file_name=report.file_name,
             risk_score=report.risk_score,
@@ -48,7 +71,7 @@ def generate_ai_insight(report: Report) -> Optional[str]:
         "stream": False,
     }
     try:
-        with httpx.Client(timeout=25) as client:
+        with httpx.Client(timeout=settings.ollama_timeout_seconds or 25) as client:
             resp = client.post(f"{ollama_url}/api/generate", json=payload)
             resp.raise_for_status()
             text = resp.json().get("response") or resp.text

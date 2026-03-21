@@ -71,7 +71,7 @@ const ReportsList = ({ reports = [], onDownload }) => {
                     <FileText size={20} className="text-accent" />
                   </motion.div>
                   <div className="flex-1">
-                    <p className="font-medium text-white text-sm">{r.file_name}</p>
+                    <p className="font-medium text-white text-sm">{r.display_file_name || r.file_name}</p>
                     <p className="text-xs text-slate-500">Scan #{r.scan_id}</p>
                   </div>
                 </div>
@@ -94,7 +94,7 @@ const ReportsList = ({ reports = [], onDownload }) => {
                     whileHover={{ scale: 1.1 }}
                     whileTap={{ scale: 0.92 }}
                     className="p-2 rounded-lg hover:bg-accent/20 text-accent transition-colors"
-                    onClick={() => onDownload?.(r.scan_id, r.file_name)}
+                    onClick={() => onDownload?.(r.scan_id, r.display_file_name || r.file_name)}
                   >
                     <Download size={18} />
                   </motion.button>
@@ -118,14 +118,14 @@ const ReportsList = ({ reports = [], onDownload }) => {
                 <div className="flex items-start gap-3 mb-3">
                   <FileText size={20} className="text-accent flex-shrink-0" />
                   <div className="flex-1">
-                    <p className="font-medium text-white text-sm">{r.file_name}</p>
+                    <p className="font-medium text-white text-sm">{r.display_file_name || r.file_name}</p>
                     <p className="text-xs text-slate-500">Scan #{r.scan_id} • {new Date(r.scan_date).toLocaleDateString()}</p>
                   </div>
                   <motion.button
                     whileHover={{ scale: 1.1 }}
                     whileTap={{ scale: 0.92 }}
                     className="p-2 rounded-lg hover:bg-accent/20 text-accent transition-colors"
-                    onClick={() => onDownload?.(r.scan_id, r.file_name)}
+                    onClick={() => onDownload?.(r.scan_id, r.display_file_name || r.file_name)}
                   >
                     <Download size={18} />
                   </motion.button>

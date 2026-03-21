@@ -1,55 +1,50 @@
+from __future__ import annotations
+
 import logging
-from textwrap import shorten
 from typing import Dict, List
 
-import httpx
+from app.agents.orchestrator import run_ai_orchestration
 
-from ..config import get_settings
-
-settings = get_settings()
 logger = logging.getLogger("dristi-scan")
 
 
-def _build_prompt(file_name: str, content: str) -> str:
-    snippet = content[:4000]
-    return (
-        "You are a senior application security engineer. "
-        "Review the following source code for vulnerabilities. "
-        "List concrete vulnerabilities with severity (Critical/High/Medium/Low), explain why, "
-        "and give one remediation step per finding. "
-        f"File: {file_name}\n\n"
-        "Code:\n"
-        f"{snippet}\n"
-    )
+def _convert_agent_findings(file_name: str, findings) -> List[Dict]:
+    converted = []
+    for f in findings:
+        converted.append(
+            {
+                "name": f.title,
+                "severity": f.severity,
+                "file_name": f.file or file_name,
+                "line_number": f.line,
+                "description": f.description,
+                "remediation": f.remediation,
+                "cwe_reference": None,
+                "code_snippet": None,
+                "category": "AI Agent",
+                "detected_by": f.detected_by,
+                "confidence": f.confidence,
+                "agent_source": "ai_agent",
+            }
+        )
+    return converted
 
 
-async def analyze_with_ai(file_name: str, content: str) -> List[Dict]:
+async def analyze_with_ai(file_name: str, content: str) -> Dict:
     """
-    Best-effort AI analysis via local Ollama; returns list of vulnerability-like dicts.
+    Use AI agent orchestrator to get structured findings.
+    Returns dict with keys: findings (list), agents_used (list), logs (list).
     """
-    ollama_url = str(settings.ollama_url).rstrip("/")
-    payload = {"model": "codellama", "prompt": _build_prompt(file_name, content), "stream": False}
     try:
-        async with httpx.AsyncClient(timeout=60) as client:
-            resp = await client.post(f"{ollama_url}/api/generate", json=payload)
-            resp.raise_for_status()
-            text = resp.json().get("response", "") or resp.text
+        orchestration = run_ai_orchestration(content=content, file_path=file_name)
     except Exception as exc:
-        logger.warning("AI scan skipped: %s", exc)
-        return []
+        logger.warning("AI orchestration failed: %s", exc)
+        return {"findings": [], "agents_used": [], "logs": [f"[AI] Error: {exc}"]}
 
-    # Treat the whole response as a single insight entry; downstream consumers can render it.
-    cleaned = shorten(text.strip(), width=2000, placeholder=" ...")
-    return [
-        {
-            "name": "AI Security Review",
-            "severity": "Medium",
-            "file_name": file_name,
-            "line_number": None,
-            "description": cleaned,
-            "remediation": "See AI recommendations above; validate manually.",
-            "cwe_reference": None,
-            "code_snippet": None,
-            "category": "AI Analysis",
-        }
-    ]
+    converted = _convert_agent_findings(file_name, orchestration.findings)
+    return {
+        "findings": converted,
+        "agents_used": orchestration.agents_used,
+        "logs": orchestration.logs,
+        "raw_agent_results": [r.model_dump() for r in orchestration.agent_results],
+    }

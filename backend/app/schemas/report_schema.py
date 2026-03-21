@@ -8,6 +8,7 @@ from .scan_schema import VulnerabilityOut
 class Report(BaseModel):
     scan_id: int
     file_name: str
+    display_file_name: str | None = None
     scan_date: datetime
     total_vulnerabilities: int
     risk_score: float

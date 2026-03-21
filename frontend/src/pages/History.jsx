@@ -43,7 +43,7 @@ const History = () => {
               {entries.map((item) => (
                 <tr key={item.scan_id}>
                   <td className="py-3">{item.scan_id}</td>
-                  <td>{item.file_name}</td>
+                  <td>{item.display_file_name || item.file_name}</td>
                   <td>{new Date(item.scan_date).toLocaleString()}</td>
                   <td className="text-accent font-semibold">{item.risk_score}</td>
                   <td>{item.total_vulnerabilities}</td>

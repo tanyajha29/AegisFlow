@@ -6,6 +6,7 @@ from ..database import get_db
 from ..middleware.auth_middleware import get_current_user
 from ..models.scan_model import Scan
 from ..schemas.report_schema import Report, ReportHistory
+from ..utils.file_handler import strip_generated_prefix
 from ..services.report_service import get_report, get_report_pdf
 from ..services.risk_engine import risk_level
 
@@ -26,6 +27,7 @@ def history(db: Session = Depends(get_db), current_user=Depends(get_current_user
         Report(
             scan_id=s.id,
             file_name=s.file_name,
+            display_file_name=strip_generated_prefix(s.file_name),
             scan_date=s.scan_date,
             total_vulnerabilities=s.total_findings,
             risk_score=s.risk_score,

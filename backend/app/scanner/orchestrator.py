@@ -88,9 +88,10 @@ def run_bandit(file_name: str, content: str) -> List[Dict[str, Any]]:
         shutil.rmtree(temp_path.parent, ignore_errors=True)
 
 
-async def run_pipeline(file_name: str, content: str) -> List[Dict[str, Any]]:
+async def run_pipeline(file_name: str, content: str) -> tuple[list[Dict[str, Any]], Dict[str, Any]]:
     """
     Modular pipeline that can be extended easily.
+    Returns (findings, ai_meta) where ai_meta includes agents_used/logs/raw_agent_results.
     """
     findings: List[Dict[str, Any]] = []
     findings.extend(_rule_engine.scan(content, file_name))
@@ -99,11 +100,13 @@ async def run_pipeline(file_name: str, content: str) -> List[Dict[str, Any]]:
     findings.extend(scan_dependencies(file_name, content))
     findings.extend(run_semgrep(file_name, content))
     findings.extend(run_bandit(file_name, content))
-    findings.extend(await analyze_with_ai(file_name, content))
-    return findings
+
+    ai_meta = await analyze_with_ai(file_name, content)
+    findings.extend(ai_meta.get("findings", []))
+    return findings, ai_meta
 
 
-def run_pipeline_sync(file_name: str, content: str) -> List[Dict[str, Any]]:
+def run_pipeline_sync(file_name: str, content: str) -> tuple[list[Dict[str, Any]], Dict[str, Any]]:
     """
     Wrapper for sync contexts.
     """

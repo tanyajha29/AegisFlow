@@ -53,6 +53,9 @@ class ScanSummary(BaseModel):
 class ScanResult(BaseModel):
     scan_id: int
     file_name: str
+    display_file_name: str | None = None
+    stored_file_name: str | None = None
+    original_file_name: str | None = None
     risk_score: float
     security_score: float
     total_findings: int
@@ -65,12 +68,16 @@ class ScanResult(BaseModel):
     scan_engine: str | None = None
     rules_applied: int | None = None
     summary: ScanSummary | None = None
+    ai_agents_used: list[str] | None = None
+    ai_logs: list[str] | None = None
+    ai_raw: list[dict] | None = None
     vulnerabilities: List[VulnerabilityOut | VulnerabilityBase]
 
 
 class ScanHistoryItem(BaseModel):
     scan_id: int
     file_name: str
+    display_file_name: str | None = None
     scan_date: datetime
     risk_score: float
     security_score: float | None = None

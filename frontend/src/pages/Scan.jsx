@@ -1,20 +1,21 @@
-import React, { useEffect, useState } from 'react';
-import { motion } from 'framer-motion';
-import { useNavigate } from 'react-router-dom';
-import GlassCard from '../components/GlassCard.jsx';
-import ScanTabs from '../components/ScanTabs.jsx';
-import ScanProgress from '../components/ScanProgress.jsx';
-import { useScan } from '../context/ScanContext.jsx';
+import React, { useEffect, useState } from "react";
+import { motion } from "framer-motion";
+import { useNavigate } from "react-router-dom";
+import GlassCard from "../components/GlassCard.jsx";
+import ScanTabs from "../components/ScanTabs.jsx";
+import ScanProgress from "../components/ScanProgress.jsx";
+import AgentPanel from "../components/AgentPanel.jsx";
+import { useScan } from "../context/ScanContext.jsx";
 
 const Scan = () => {
-  const [code, setCode] = useState('// Paste your code here\n');
+  const [code, setCode] = useState("// Paste your code here\n");
   const [progress, setProgress] = useState(0);
-  const [activeTab, setActiveTab] = useState('code');
+  const [activeTab, setActiveTab] = useState("code");
   const [isScanning, setIsScanning] = useState(false);
-  const [localError, setLocalError] = useState('');
+  const [localError, setLocalError] = useState("");
   const [selectedFiles, setSelectedFiles] = useState([]);
-  const [repoUrl, setRepoUrl] = useState('');
-  const { runCodeScan, runUploadScan, runRepoScan, loading } = useScan();
+  const [repoUrl, setRepoUrl] = useState("");
+  const { runCodeScan, runUploadScan, runRepoScan, loading, lastResult } = useScan();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -26,26 +27,26 @@ const Scan = () => {
   }, [isScanning]);
 
   const handleStartScan = async () => {
-    setLocalError('');
+    setLocalError("");
     setIsScanning(true);
     setProgress(12);
     try {
-      if (activeTab === 'code') {
-        await runCodeScan({ code, file_name: 'snippet.py' });
-      } else if (activeTab === 'file') {
-        if (!selectedFiles.length) throw new Error('Choose at least one file to upload.');
+      if (activeTab === "code") {
+        await runCodeScan({ code, file_name: "snippet.py" });
+      } else if (activeTab === "file") {
+        if (!selectedFiles.length) throw new Error("Choose at least one file to upload.");
         await runUploadScan(selectedFiles);
-      } else if (activeTab === 'github') {
-        if (!repoUrl) throw new Error('Enter a repository URL.');
+      } else if (activeTab === "github") {
+        if (!repoUrl) throw new Error("Enter a repository URL.");
         await runRepoScan(repoUrl);
       }
       setProgress(100);
       setTimeout(() => {
         setIsScanning(false);
-        navigate('/results');
+        navigate("/app/results");
       }, 250);
     } catch (err) {
-      setLocalError(err?.response?.data?.detail || err.message || 'Scan failed.');
+      setLocalError(err?.response?.data?.detail || err.message || "Scan failed.");
       setIsScanning(false);
       setProgress(0);
     }
@@ -55,7 +56,7 @@ const Scan = () => {
     const files = Array.from(event?.target?.files || []);
     if (files.length) {
       setSelectedFiles(files);
-      setLocalError('');
+      setLocalError("");
     }
   };
 
@@ -95,14 +96,11 @@ const Scan = () => {
               setProgress(0);
             }}
           />
-          <GlassCard className="p-4">
-            <p className="text-sm text-slate-400 mb-2">Scan tips</p>
-            <ul className="text-xs text-slate-500 space-y-1">
-              <li>• Avoid uploading production secrets; use redacted samples.</li>
-              <li>• Include dependency manifests for full coverage.</li>
-              <li>• GitHub scans use the default branch.</li>
-            </ul>
-          </GlassCard>
+          <AgentPanel
+            loading={isScanning || loading}
+            agentsUsed={lastResult?.ai_agents_used || []}
+            logs={(isScanning ? [] : lastResult?.ai_logs) || ["Agent logs will appear after the scan completes."]}
+          />
         </div>
       </div>
     </motion.div>

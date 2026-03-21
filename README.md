@@ -2,146 +2,181 @@
   <img src="docs/screens/logo.png" alt="DristiScan Logo" width="220" />
 </p>
 
-<h1 align="center">DristiScan � Cloud Code Security Scanner</h1>
+<h1 align="center">DristiScan - Cloud Code Security Scanner</h1>
 
-DristiScan is a DevSecOps-inspired platform that analyzes source code, dependencies, and GitHub repositories for security vulnerabilities. It combines rule-based static analysis, dependency scanning, secret detection, and optional AI-assisted insights (via Ollama) to generate professional vulnerability reports. Key capabilities include multi-language code scanning, GitHub repository scanning, automated vulnerability classification, risk scoring, and downloadable PDF/JSON reports through an interactive dashboard.
+<p align="center">
+A modern DevSecOps-inspired platform for scanning source code, dependencies, and GitHub repositories to detect vulnerabilities and generate professional security reports.
+</p>
+
+---
+
+## Overview
+
+DristiScan is a full-stack cybersecurity SaaS platform that analyzes codebases for security vulnerabilities using a combination of:
+
+- Rule-based static analysis
+- Secret detection
+- Dependency scanning
+- AI-assisted insights (via Ollama)
+
+It provides:
+
+- Multi-language code scanning
+- GitHub repository analysis
+- Risk scoring
+- Downloadable PDF/JSON reports
+- Interactive security dashboard
+
+---
 
 ## Features
-- Source code vulnerability scanning (multi-language)
+
+- Multi-language source code scanning
 - GitHub repository scanning
 - Dependency vulnerability detection
-- Secret key detection
-- AI-based vulnerability explanations (Ollama)
-- Risk scoring system with severity bands
-- Professional PDF reports (with optional AI executive insight)
-- Interactive security dashboard with trends/history
+- Secret key and credential detection
+- AI-powered vulnerability explanations (Ollama)
+- Risk scoring with severity classification
+- Professional PDF and JSON reports
+- Interactive dashboard with analytics and history
+
+---
 
 ## Architecture
-- **Frontend**: React (Vite), Tailwind, Chart.js, Framer Motion, lucide-react; REST to backend.
-- **Backend**: FastAPI, SQLAlchemy, Pydantic Settings, JWT auth, reportlab PDFs, optional AI via Ollama.
-- **DB**: PostgreSQL.
-- **Containers**: Docker Compose orchestrates `backend`, `frontend`, `db`.
-- **Pipeline**: Rule engine (100+ regex rules) → SAST → secrets → dependency advisories → optional Semgrep/Bandit → optional Ollama AI → risk scoring.
 
-### Scanning Pipeline
+- Frontend: React (Vite), Tailwind CSS, Chart.js, Framer Motion
+- Backend: FastAPI, SQLAlchemy, Pydantic Settings, JWT Auth
+- Database: PostgreSQL
+- Containers: Docker Compose (frontend, backend, db)
+- AI Integration: Local models via Ollama
+
+---
+
+## Scanning Pipeline
 ```
-User Code / Repo
-        │
-        ▼
+User Code / Repository
+        |
+        v
 Rule Engine (100+ rules)
-        │
-        ▼
+        |
+        v
 SAST Analysis
-        │
-        ▼
+        |
+        v
 Secret Detection
-        │
-        ▼
+        |
+        v
 Dependency Scanner
-        │
-        ▼
+        |
+        v
 Optional Tools
- ├─ Semgrep
- ├─ Bandit
- └─ AI Analysis (Ollama)
-        │
-        ▼
+ +- Semgrep
+ +- Bandit
+ +- AI Analysis (Ollama)
+        |
+        v
 Risk Scoring
-        │
-        ▼
-Vulnerability Report (PDF/JSON)
+        |
+        v
+Vulnerability Report (PDF / JSON)
 ```
 
-## Repo Structure
+---
+
+## Project Structure
 ```
 backend/
   app/
-    main.py                # FastAPI entrypoint
-    config.py              # Settings (env-driven)
-    database.py            # SQLAlchemy engine/session
-    models/                # users, scans, vulnerabilities
-    routes/                # auth, scan, reports
-    scanners/              # sast, secrets, dependency rules
-    services/              # scanner orchestration, risk, reports, GitHub fetch, AI summary
-    utils/                 # JWT, files, pdf, rate limiter
+    main.py
+    config.py
+    database.py
+    models/
+    routes/
+    scanners/
+    services/
+    utils/
 frontend/
   src/
-    App.jsx                # Routes
-    context/               # Auth + Scan contexts
-    pages/                 # Dashboard, Scan, Results, Reports, History, Settings, Login
-    components/            # Layout, cards, charts, scan tabs/progress, filters, vuln list
+    App.jsx
+    context/
+    pages/
+    components/
 docker-compose.yml
-docs/screens/              # UI screenshots
+docs/screens/
 ```
+
+---
 
 ## Quick Start (Docker)
 ```bash
 docker-compose up --build
-# Frontend: http://localhost:5173   (or your WSL IP)
+# Frontend: http://localhost:5173
 # Backend:  http://localhost:8000
-# API docs: http://localhost:8000/docs
+# API Docs: http://localhost:8000/docs
 ```
-If using WSL2 + Docker, set `VITE_API_BASE_URL=http://<wsl-ip>:8000` and open `http://<wsl-ip>:5173`.
 
-## Backend: Local (without Compose)
+### Backend Setup (Local)
 ```bash
 cd backend
 python -m venv .venv
-source .venv/Scripts/activate  # PowerShell/Git Bash adjust
+source .venv/Scripts/activate  # on PowerShell/Git Bash adjust accordingly
 pip install -r requirements.txt
 
-# required env
 set DATABASE_URL=postgresql://admin:adminpassword@localhost:5432/drishtiscan
 set SECRET_KEY=your-secret
 set ACCESS_TOKEN_EXPIRE_MINUTES=60
-set GITHUB_TOKEN=your-github-token   # recommended for repo scans
+set GITHUB_TOKEN=your-github-token
 set OLLAMA_URL=http://localhost:11434
 
-python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+uvicorn app.main:app --reload
 ```
 
-## Frontend: Local (without Compose)
+### Frontend Setup (Local)
 ```bash
 cd frontend
 npm ci --legacy-peer-deps
 VITE_API_BASE_URL=http://localhost:8000 npm run dev
-# Open http://localhost:5173
 ```
 
-### Environment Variables (backend)
-- `DATABASE_URL` (required) e.g. `postgresql://admin:adminpassword@db:5432/drishtiscan`
-- `SECRET_KEY` or `JWT_SECRET_KEY` (required for JWT)
-- `ALGORITHM` (default HS256)
-- `ACCESS_TOKEN_EXPIRE_MINUTES` (default 60)
-- `GITHUB_TOKEN` (recommended for repo scans)
-- `OLLAMA_URL` (default `http://localhost:11434`)
-- `UPLOAD_DIR`, `MAX_UPLOAD_SIZE_MB`, `ALLOWED_FILE_TYPES` (optional)
+---
 
-## Core API Endpoints
-- **Auth**: `POST /auth/register`, `POST /auth/login`, `GET /auth/profile`
-- **Scan**: `POST /scan/code`, `POST /scan/upload`, `POST /scan/repo`
-- **Reports**: `GET /reports/history`, `GET /reports/{scan_id}`, `GET /reports/{scan_id}/pdf`
-- **Health**: `GET /health`
+## Environment Variables (backend)
+- DATABASE_URL � PostgreSQL connection string
+- SECRET_KEY � JWT secret key
+- ACCESS_TOKEN_EXPIRE_MINUTES � Token expiry
+- GITHUB_TOKEN � Required for repo scanning
+- OLLAMA_URL � Local AI endpoint
+- UPLOAD_DIR � File upload path
+- MAX_UPLOAD_SIZE_MB � Upload size limit
 
-### Example (code scan)
+---
+
+## API Endpoints
+- Auth: POST /auth/register, POST /auth/login, GET /auth/profile
+- Scan: POST /scan/code, POST /scan/upload, POST /scan/repo
+- Reports: GET /reports/history, GET /reports/{scan_id}, GET /reports/{scan_id}/pdf
+- Health: GET /health
+
+---
+
+## Example Usage
+Code Scan
 ```bash
-TOKEN=$(curl -s -X POST http://localhost:8000/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"email":"tester@example.com","password":"Password123"}' | jq -r .access_token)
-
 curl -X POST http://localhost:8000/scan/code \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"code":"import os\nos.system(input())","file_name":"demo.py"}'
+ -H "Authorization: Bearer TOKEN" \
+ -H "Content-Type: application/json" \
+ -d '{"code":"import os\\nos.system(input())","file_name":"demo.py"}'
 ```
 
-### Example (repo scan)
+Repo Scan
 ```bash
 curl -X POST http://localhost:8000/scan/repo \
- -H "Authorization: Bearer $TOKEN" \
+ -H "Authorization: Bearer TOKEN" \
  -H "Content-Type: application/json" \
  -d '{"repo_url":"https://github.com/user/project"}'
 ```
+
+---
 
 ## Example Vulnerability Output
 ```
@@ -153,77 +188,75 @@ Description: User input is concatenated into a SQL query without sanitization.
 Remediation: Use parameterized queries with placeholders.
 ```
 
+---
+
 ## AI Security Analysis
-DristiScan can optionally use a local Ollama model to add:
-- Executive insight summaries in PDFs
-- Vulnerability explanations and remediation hints
-- Suspicious code pattern analysis
+DristiScan integrates with Ollama to provide:
+- AI-generated vulnerability explanations
+- Remediation suggestions
+- Executive summaries in reports
+
+---
 
 ## UI Preview
-### Dashboard
-![Dashboard](docs/screens/ui-screen-1.png)
-### Scaning Page
-![Scan Workspace](docs/screens/ui-screen-2.png)
-### Scan Results
-![Scan Progress](docs/screens/ui-screen-3.png)
-### Scan History
-![Results & Filters](docs/screens/ui-screen-4.png)
-### Reports
-![Reports Download](docs/screens/ui-screen-5.png)
+- Dashboard
+- Scan Workspace
+- Scan Results
+- History
+- Reports
 
-## Frontend Walkthrough
-- **Scan**: Animated tabs for code paste, file upload, and GitHub repo scan; live progress panel.
-- **Results**: Severity filters + search, animated vulnerability list, PDF download.
-- **Reports**: Animated list with inline PDF download.
-- **Dashboard**: Live stats from `/reports/history` (totals, avg score, severity pie, score trend).
-- **History/Settings**: History table; settings stub for profile/API key.
+---
 
-## Scanners (backend)
-- **Rule engine**: 100+ regex rules in `backend/rules/vulnerability_rules.json`.
-- **SAST**: heuristics for SQLi, command injection, eval/exec, file access, DOM XSS.
-- **Secrets**: AWS keys, generic tokens, private keys, JWTs.
-- **Dependencies**: minimal advisories for common packages.
-- **AI (optional)**: Ollama adds an “AI Security Review” finding and PDF insight.
-- **Risk**: Weighted severity → score (100 - points) + risk bands.
+## Scanning Capabilities
+- Rule-based vulnerability engine (100+ rules)
+- Static analysis (SQLi, command injection, XSS, etc.)
+- Secret detection (API keys, tokens, credentials)
+- Dependency risk detection
+- Optional AI-based analysis via Ollama
+- Risk scoring and severity classification
 
-## Repo Scanning
-- `POST /scan/repo` with `{ "repo_url": "https://github.com/user/repo" }`
-- Uses GitHub API + `GITHUB_TOKEN` to fetch supported files (py/js/ts/java/go/php/rb/c/cpp), scans all files, aggregates findings.
+---
+
+## GitHub Repository Scanning
+- Accepts repository URLs
+- Fetches files via GitHub API
+- Scans multi-language codebases
+- Aggregates vulnerabilities into a unified report
+
+---
 
 ## Development Tips
-- Update deps: `pip install -r backend/requirements.txt` and `npm ci --legacy-peer-deps` (frontend).
-- Clean uploads: backend stores temp files under `backend/uploads` (auto cleanup via background task).
-- Logs: `docker logs drishti_scan_backend` / `drishti_scan_frontend` for containerized runs.
-- If DB schema drifts, `docker-compose down -v && docker-compose up --build`.
+- Use docker logs for debugging containers
+- Clean uploads directory periodically
+- Reset database with:
+```bash
+docker-compose down -v
+docker-compose up --build
+```
+
+---
 
 ## Production Checklist
-- Use managed Postgres + proper credentials/rotation.
-- Set strong `SECRET_KEY`, adjust token expiry.
-- Put Nginx/Traefik in front with HTTPS and gzip.
-- Add Alembic migrations before schema changes.
-- Externalize rate limiting (Redis) and storage (S3) for uploads.
-- Hook scanners to real vulnerability feeds (e.g., OSV) and SAST engines.
+- Use managed PostgreSQL
+- Configure HTTPS (Nginx / Traefik)
+- Secure environment variables
+- Add Alembic migrations
+- Integrate Redis for rate limiting
+- Connect real vulnerability feeds (OSV, NVD)
+
+---
 
 ## Limitations
-- Rule-based scanning can produce false positives.
-- Dependency scanner uses a limited advisory dataset.
-- AI quality depends on the local model.
-- Large repositories may take longer to scan.
+- Rule-based scanning may produce false positives
+- Dependency database is limited
+- AI accuracy depends on model quality
+- Large repositories may increase scan time
+
+---
 
 ## Future Improvements
-- Integrate CVE feeds (NVD / OSV)
-- Add container security scanning
-- Implement distributed scan workers
-- Support additional languages
-- Expand dependency vulnerability database
-
-## License
-MIT License
-
-
-
-
-
-
-
-
+- CVE/NVD integration
+- Container security scanning
+- Distributed scan workers
+- Expanded language support
+- Advanced dependency intelligence
