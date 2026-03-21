@@ -260,3 +260,35 @@ docker-compose up --build
 - Distributed scan workers
 - Expanded language support
 - Advanced dependency intelligence
+
+## Environment Variables (clean reference)
+- `DATABASE_URL` – PostgreSQL connection string
+- `SECRET_KEY` – JWT secret key
+- `ACCESS_TOKEN_EXPIRE_MINUTES` – Token expiry
+- `GITHUB_TOKEN` – GitHub token for repo scans
+- `OLLAMA_URL` – Ollama base URL (e.g., `http://host.docker.internal:11434` or `http://172.17.0.1:11434` on WSL)
+- `OLLAMA_MODEL` – Model name (e.g., `deepseek-coder`)
+- `OLLAMA_TIMEOUT_SECONDS` – Timeout for Ollama calls
+- `UPLOAD_DIR` – File upload path
+- `MAX_UPLOAD_SIZE_MB` – Upload size limit
+
+### Ollama setup (Docker / WSL)
+1) Bind Ollama to all interfaces:
+```bash
+sudo pkill -f "ollama serve" || true
+sudo OLLAMA_HOST=0.0.0.0 ollama serve
+```
+2) Pull a model:
+```bash
+OLLAMA_HOST=0.0.0.0 ollama pull deepseek-coder:latest
+```
+3) In `.env` set a reachable URL:
+```bash
+OLLAMA_URL=http://host.docker.internal:11434   # or http://172.17.0.1:11434 in WSL
+OLLAMA_MODEL=deepseek-coder
+OLLAMA_TIMEOUT_SECONDS=60
+```
+4) Restart backend:
+```bash
+docker compose up -d backend
+```
