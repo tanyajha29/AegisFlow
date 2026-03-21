@@ -13,12 +13,12 @@ import {
 import { useAuth } from '../context/AuthContext.jsx';
 
 const navItems = [
-  { to: '/', label: 'Dashboard', icon: HomeModernIcon },
-  { to: '/scan', label: 'Scan Code', icon: CodeBracketSquareIcon },
-  { to: '/results', label: 'Scan Results', icon: ArrowUpOnSquareStackIcon },
-  { to: '/history', label: 'Scan History', icon: ClockIcon },
-  { to: '/reports', label: 'Security Reports', icon: DocumentTextIcon },
-  { to: '/settings', label: 'Settings', icon: Cog6ToothIcon },
+  { to: '/app', label: 'Dashboard', icon: HomeModernIcon },
+  { to: '/app/scan', label: 'Scan Code', icon: CodeBracketSquareIcon },
+  { to: '/app/results', label: 'Scan Results', icon: ArrowUpOnSquareStackIcon },
+  { to: '/app/history', label: 'Scan History', icon: ClockIcon },
+  { to: '/app/reports', label: 'Security Reports', icon: DocumentTextIcon },
+  { to: '/app/settings', label: 'Settings', icon: Cog6ToothIcon },
 ];
 
 const Sidebar = ({ collapsed, onToggle }) => {
@@ -26,7 +26,7 @@ const Sidebar = ({ collapsed, onToggle }) => {
 
   return (
     <aside
-      className={`fixed md:static z-30 h-screen md:h-auto w-72 md:w-72 bg-surface border-r border-border backdrop-blur-xl transition-all duration-300 ${
+      className={`fixed md:static z-30 h-screen md:h-auto w-72 md:w-72 glass-card bg-[rgba(15,23,42,0.9)] border border-[rgba(59,130,246,0.2)] backdrop-blur-2xl transition-all duration-300 ${
         collapsed ? '-translate-x-full md:translate-x-0' : 'translate-x-0'
       }`}
     >

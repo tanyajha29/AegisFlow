@@ -8,7 +8,18 @@ const tabs = [
   { id: 'github', label: 'GitHub Repository', icon: Github },
 ];
 
-const ScanTabs = ({ activeTab, onTabChange, isScanning, onStartScan, onFileSelect, onRepoChange, repoUrl, code, setCode }) => {
+const ScanTabs = ({
+  activeTab,
+  onTabChange,
+  isScanning,
+  onStartScan,
+  onFileSelect,
+  onRepoChange,
+  repoUrl,
+  code,
+  setCode,
+  selectedFiles = [],
+}) => {
   return (
     <motion.div whileHover={!isScanning ? { scale: 1.005 } : {}} className="relative rounded-xl border border-border bg-card overflow-hidden shadow-glow">
       <div className="flex border-b border-border bg-surface/30">
@@ -62,13 +73,35 @@ const ScanTabs = ({ activeTab, onTabChange, isScanning, onStartScan, onFileSelec
                 </motion.div>
                 <h3 className="font-semibold text-white mb-2">Upload Files</h3>
                 <p className="text-sm text-slate-400 mb-4">Drag and drop files or click to browse.</p>
-                <input type="file" multiple disabled={isScanning} className="hidden" id="file-upload" onChange={onFileSelect} />
+                <input
+                  type="file"
+                  multiple
+                  disabled={isScanning}
+                  className="hidden"
+                  id="file-upload"
+                  onChange={onFileSelect}
+                  accept=".py,.js,.ts,.jsx,.tsx,.java,.go,.rb,.php,.cs,.c,.cpp,.json,.env,.txt"
+                />
                 <label
                   htmlFor="file-upload"
                   className="inline-block px-4 py-2 bg-accent/20 hover:bg-accent/30 text-accent rounded-lg cursor-pointer transition-colors"
                 >
                   Browse Files
                 </label>
+
+                {selectedFiles.length > 0 && (
+                  <div className="mt-4 text-left bg-surface/60 border border-border/60 rounded-lg p-3 space-y-2 max-h-40 overflow-y-auto">
+                    <p className="text-xs text-slate-400">Selected files</p>
+                    <ul className="text-sm text-slate-200 space-y-1">
+                      {selectedFiles.map((file) => (
+                        <li key={file.name} className="flex justify-between">
+                          <span className="truncate">{file.name}</span>
+                          <span className="text-slate-500 text-xs">{(file.size / 1024).toFixed(1)} KB</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
               </div>
             )}
 

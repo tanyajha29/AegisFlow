@@ -3,7 +3,7 @@
 import { motion } from "framer-motion"
 import { ArrowRight, Shield } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import Link from "next/link"
+import { Link } from "react-router-dom"
 
 export function CTASection() {
   return (
@@ -37,13 +37,13 @@ export function CTASection() {
           </p>
 
           <div className="flex flex-wrap justify-center gap-4">
-            <Link href="/scan">
+            <Link to="/app/scan">
               <Button size="lg" className="btn-gradient text-white gap-2 h-12 px-8">
                 Start Scanning Now
                 <ArrowRight className="h-4 w-4" />
               </Button>
             </Link>
-            <Link href="/signup">
+            <Link to="/login">
               <Button
                 size="lg"
                 variant="outline"

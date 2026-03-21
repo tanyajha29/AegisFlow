@@ -12,7 +12,7 @@ const Scan = () => {
   const [activeTab, setActiveTab] = useState('code');
   const [isScanning, setIsScanning] = useState(false);
   const [localError, setLocalError] = useState('');
-  const [selectedFile, setSelectedFile] = useState(null);
+  const [selectedFiles, setSelectedFiles] = useState([]);
   const [repoUrl, setRepoUrl] = useState('');
   const { runCodeScan, runUploadScan, runRepoScan, loading } = useScan();
   const navigate = useNavigate();
@@ -33,8 +33,8 @@ const Scan = () => {
       if (activeTab === 'code') {
         await runCodeScan({ code, file_name: 'snippet.py' });
       } else if (activeTab === 'file') {
-        if (!selectedFile) throw new Error('Choose a file to upload.');
-        await runUploadScan(selectedFile);
+        if (!selectedFiles.length) throw new Error('Choose at least one file to upload.');
+        await runUploadScan(selectedFiles);
       } else if (activeTab === 'github') {
         if (!repoUrl) throw new Error('Enter a repository URL.');
         await runRepoScan(repoUrl);
@@ -52,8 +52,11 @@ const Scan = () => {
   };
 
   const handleFileSelect = (event) => {
-    const file = event?.target?.files?.[0];
-    if (file) setSelectedFile(file);
+    const files = Array.from(event?.target?.files || []);
+    if (files.length) {
+      setSelectedFiles(files);
+      setLocalError('');
+    }
   };
 
   return (
@@ -80,6 +83,7 @@ const Scan = () => {
             repoUrl={repoUrl}
             code={code}
             setCode={setCode}
+            selectedFiles={selectedFiles}
           />
         </div>
         <div className="space-y-4">

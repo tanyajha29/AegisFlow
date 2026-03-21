@@ -21,7 +21,7 @@ const Login = () => {
       } else {
         await register(email, password);
       }
-      navigate('/');
+      navigate('/app');
     } finally {
       setLoading(false);
     }

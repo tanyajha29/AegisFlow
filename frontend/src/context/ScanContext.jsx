@@ -25,11 +25,18 @@ export const ScanProvider = ({ children }) => {
     }
   };
 
-  const runUploadScan = async (file) => {
+  const runUploadScan = async (files) => {
     setLoading(true);
     setError(null);
     const formData = new FormData();
-    formData.append('file', file);
+    const fileArray = Array.isArray(files) ? files : [files];
+
+    fileArray.forEach((file, idx) => {
+      formData.append('files', file);
+      // also append singular "file" for backends that expect one field
+      if (idx === 0) formData.append('file', file);
+    });
+
     try {
       const { data } = await api.post('/scan/upload', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },

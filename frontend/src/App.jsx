@@ -10,6 +10,7 @@ import Reports from './pages/Reports.jsx';
 import History from './pages/History.jsx';
 import Settings from './pages/Settings.jsx';
 import Layout from './components/Layout.jsx';
+import LandingPage from './pages/page';
 
 const Protected = ({ children }) => {
   const { user } = useAuth();
@@ -22,9 +23,10 @@ const App = () => {
   return (
     <div className="min-h-screen bg-navy text-slate-100">
       <Routes>
-        <Route path="/login" element={user ? <Navigate to="/" replace /> : <Login />} />
+        <Route path="/" element={user ? <Navigate to="/app" replace /> : <LandingPage />} />
+        <Route path="/login" element={user ? <Navigate to="/app" replace /> : <Login />} />
         <Route
-          path="/*"
+          path="/app/*"
           element={
             <Protected>
               <Layout>
@@ -35,12 +37,13 @@ const App = () => {
                   <Route path="reports" element={<Reports />} />
                   <Route path="history" element={<History />} />
                   <Route path="settings" element={<Settings />} />
-                  <Route path="*" element={<Navigate to="/" replace />} />
+                  <Route path="*" element={<Navigate to="/app" replace />} />
                 </Routes>
               </Layout>
             </Protected>
           }
         />
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </div>
   );

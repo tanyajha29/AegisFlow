@@ -1,7 +1,7 @@
 "use client"
 
-import Link from "next/link"
-import { Shield, Github, Twitter, Linkedin } from "lucide-react"
+import { Link } from "react-router-dom"
+import { Eye, Github, Twitter, Linkedin } from "lucide-react"
 
 const footerLinks = {
   Product: [
@@ -37,8 +37,11 @@ export function Footer() {
         <div className="grid sm:grid-cols-2 lg:grid-cols-6 gap-8">
           {/* Brand */}
           <div className="lg:col-span-2">
-            <Link href="/" className="flex items-center gap-2 mb-4">
-              <Shield className="h-8 w-8 text-[#3B82F6]" />
+            <Link to="/" className="flex items-center gap-3 mb-4 group">
+              <div className="h-10 w-10 rounded-2xl bg-gradient-to-br from-[#3B82F6] to-[#06B6D4] flex items-center justify-center shadow-glow relative overflow-hidden">
+                <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity" />
+                <Eye className="h-5 w-5 text-white" />
+              </div>
               <span className="text-xl font-bold gradient-text">DristiScan</span>
             </Link>
             <p className="text-sm text-[#94A3B8] mb-4 max-w-xs">
@@ -80,12 +83,21 @@ export function Footer() {
               <ul className="space-y-3">
                 {links.map((link) => (
                   <li key={link.label}>
-                    <Link
-                      href={link.href}
-                      className="text-sm text-[#94A3B8] hover:text-[#E2E8F0] transition-colors"
-                    >
-                      {link.label}
-                    </Link>
+                    {link.href.startsWith("#") ? (
+                      <a
+                        href={link.href}
+                        className="text-sm text-[#94A3B8] hover:text-[#E2E8F0] transition-colors"
+                      >
+                        {link.label}
+                      </a>
+                    ) : (
+                      <Link
+                        to={link.href}
+                        className="text-sm text-[#94A3B8] hover:text-[#E2E8F0] transition-colors"
+                      >
+                        {link.label}
+                      </Link>
+                    )}
                   </li>
                 ))}
               </ul>

@@ -3,7 +3,7 @@
 import { motion } from "framer-motion"
 import { ArrowRight, Play, Code, Upload, Github } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import Link from "next/link"
+import { Link } from "react-router-dom"
 import { LiveScanDemo } from "./live-scan-demo"
 
 export function HeroSection() {
@@ -64,7 +64,7 @@ export function HeroSection() {
               transition={{ delay: 0.5 }}
               className="flex flex-wrap gap-4"
             >
-              <Link href="/scan">
+              <Link to="/app/scan">
                 <Button size="lg" className="btn-gradient text-white gap-2 h-12 px-8">
                   Start Scanning
                   <ArrowRight className="h-4 w-4" />
@@ -91,8 +91,8 @@ export function HeroSection() {
                 { icon: Code, label: "Paste Code" },
                 { icon: Upload, label: "Upload File" },
                 { icon: Github, label: "GitHub Repo" },
-              ].map((item, index) => (
-                <Link key={item.label} href="/scan">
+              ].map((item) => (
+                <Link key={item.label} to="/app/scan">
                   <motion.div
                     whileHover={{ scale: 1.05, y: -5 }}
                     className="glass-card p-4 rounded-xl text-center cursor-pointer transition-all"

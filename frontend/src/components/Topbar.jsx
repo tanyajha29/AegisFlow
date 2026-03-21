@@ -1,21 +1,15 @@
 import React from 'react';
-import { BellIcon, MagnifyingGlassIcon, Bars3Icon, EyeIcon } from '@heroicons/react/24/outline';
+import { BellIcon, Bars3Icon, EyeIcon } from '@heroicons/react/24/outline';
 import { motion } from 'framer-motion';
 
 const Topbar = ({ onToggleSidebar }) => {
   return (
-    <header className="sticky top-0 z-20 backdrop-blur-xl bg-navy/70 border-b border-border">
-      <div className="max-w-7xl mx-auto flex items-center gap-3 px-6 py-4 md:px-10">
+    <header className="sticky top-0 z-20">
+      <div className="max-w-7xl mx-auto flex items-center gap-3 px-6 py-4 md:px-10 glass-card bg-[rgba(15,23,42,0.85)] border border-[rgba(59,130,246,0.25)] backdrop-blur-2xl">
         <button className="md:hidden text-slate-300" onClick={onToggleSidebar}>
           <Bars3Icon className="h-6 w-6" />
         </button>
-        <div className="relative flex-1">
-          <MagnifyingGlassIcon className="h-5 w-5 text-slate-500 absolute left-3 top-3" />
-          <input
-            className="w-full bg-surface border border-border rounded-xl pl-10 pr-3 py-2.5 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-accent transition"
-            placeholder="Search scans, files, vulnerabilities..."
-          />
-        </div>
+        <div className="flex-1" />
         <motion.button
           whileHover={{ scale: 1.05 }}
           className="relative h-11 w-11 rounded-xl bg-surface border border-border flex items-center justify-center"
