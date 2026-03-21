@@ -1,6 +1,8 @@
-# DristiScan â€“ Cloud Code Security Scanner
+<p align="center">
+  <img src="docs/screens/logo.png" alt="DristiScan Logo" width="220" />
+</p>
 
-![DristiScan Logo](docs/screens/logo.png)
+<h1 align="center">DristiScan – Cloud Code Security Scanner</h1>
 
 DristiScan is a DevSecOps-inspired platform that analyzes source code, dependencies, and GitHub repositories for security vulnerabilities. It combines rule-based static analysis, dependency scanning, secret detection, and optional AI-assisted insights (via Ollama) to generate professional vulnerability reports. Key capabilities include multi-language code scanning, GitHub repository scanning, automated vulnerability classification, risk scoring, and downloadable PDF/JSON reports through an interactive dashboard.
 
@@ -217,5 +219,11 @@ DristiScan can optionally use a local Ollama model to add:
 
 ## License
 MIT License
+
+
+
+
+
+
 
 
