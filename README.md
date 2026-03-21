@@ -1,8 +1,9 @@
+
 <p align="center">
   <img src="docs/screens/logo.png" alt="DristiScan Logo" width="220" />
 </p>
 
-<h1 align="center">DristiScan - Cloud Code Security Scanner</h1>
+<h1 align="center">DristiScan — Cloud Code Security Scanner</h1>
 
 <p align="center">
 A modern DevSecOps-inspired platform for scanning source code, dependencies, and GitHub repositories to detect vulnerabilities and generate professional security reports.
@@ -10,116 +11,135 @@ A modern DevSecOps-inspired platform for scanning source code, dependencies, and
 
 ---
 
-## Overview
+## 🚀 Overview
 
-DristiScan is a full-stack cybersecurity SaaS platform that analyzes codebases for security vulnerabilities using a combination of:
+DristiScan is a full-stack cybersecurity SaaS platform that analyzes codebases for security vulnerabilities using:
 
 - Rule-based static analysis
 - Secret detection
 - Dependency scanning
 - AI-assisted insights (via Ollama)
 
-It provides:
+### 🔍 Key Capabilities
 
-- Multi-language code scanning
-- GitHub repository analysis
-- Risk scoring
-- Downloadable PDF/JSON reports
-- Interactive security dashboard
-
----
-
-## Features
-
-- Multi-language source code scanning
-- GitHub repository scanning
-- Dependency vulnerability detection
-- Secret key and credential detection
-- AI-powered vulnerability explanations (Ollama)
-- Risk scoring with severity classification
-- Professional PDF and JSON reports
-- Interactive dashboard with analytics and history
+- Multi-language code scanning  
+- GitHub repository analysis  
+- Risk scoring and severity classification  
+- Downloadable PDF & JSON reports  
+- Interactive security dashboard  
 
 ---
 
-## Architecture
+## ✨ Features
 
-- Frontend: React (Vite), Tailwind CSS, Chart.js, Framer Motion
-- Backend: FastAPI, SQLAlchemy, Pydantic Settings, JWT Auth
-- Database: PostgreSQL
-- Containers: Docker Compose (frontend, backend, db)
-- AI Integration: Local models via Ollama
+- Multi-language source code scanning  
+- GitHub repository scanning  
+- Dependency vulnerability detection  
+- Secret key and credential detection  
+- AI-powered vulnerability explanations (Ollama)  
+- Risk scoring with severity classification  
+- Professional PDF and JSON reports  
+- Interactive dashboard with analytics and history  
 
 ---
 
-## Scanning Pipeline
+## 🏗️ Architecture
+
+| Layer        | Technology Stack |
+|-------------|----------------|
+| Frontend     | React (Vite), Tailwind CSS, Chart.js, Framer Motion |
+| Backend      | FastAPI, SQLAlchemy, Pydantic, JWT Authentication |
+| Database     | PostgreSQL |
+| Containers   | Docker Compose |
+| AI Engine    | Ollama (Local LLMs) |
+
+---
+
+## ⚙️ Scanning Pipeline
+
 ```
+
 User Code / Repository
-        |
-        v
+|
+v
 Rule Engine (100+ rules)
-        |
-        v
+|
+v
 SAST Analysis
-        |
-        v
+|
+v
 Secret Detection
-        |
-        v
+|
+v
 Dependency Scanner
-        |
-        v
+|
+v
 Optional Tools
- +- Semgrep
- +- Bandit
- +- AI Analysis (Ollama)
-        |
-        v
+├─ Semgrep
+├─ Bandit
+└─ AI Analysis (Ollama)
+|
+v
 Risk Scoring
-        |
-        v
+|
+v
 Vulnerability Report (PDF / JSON)
+
 ```
 
 ---
 
-## Project Structure
+## 📂 Project Structure
+
 ```
+
 backend/
-  app/
-    main.py
-    config.py
-    database.py
-    models/
-    routes/
-    scanners/
-    services/
-    utils/
+app/
+main.py
+config.py
+database.py
+models/
+routes/
+scanners/
+services/
+utils/
+
 frontend/
-  src/
-    App.jsx
-    context/
-    pages/
-    components/
+src/
+App.jsx
+context/
+pages/
+components/
+
 docker-compose.yml
 docs/screens/
-```
+
+````
 
 ---
 
-## Quick Start (Docker)
+## ⚡ Quick Start (Docker)
+
 ```bash
 docker-compose up --build
-# Frontend: http://localhost:5173
-# Backend:  http://localhost:8000
-# API Docs: http://localhost:8000/docs
-```
+````
 
-### Backend Setup (Local)
+| Service  | URL                                                      |
+| -------- | -------------------------------------------------------- |
+| Frontend | [http://localhost:5173](http://localhost:5173)           |
+| Backend  | [http://localhost:8000](http://localhost:8000)           |
+| API Docs | [http://localhost:8000/docs](http://localhost:8000/docs) |
+
+---
+
+## 🧪 Local Setup
+
+### Backend
+
 ```bash
 cd backend
 python -m venv .venv
-source .venv/Scripts/activate  # on PowerShell/Git Bash adjust accordingly
+source .venv/Scripts/activate  # Adjust for OS
 pip install -r requirements.txt
 
 set DATABASE_URL=postgresql://admin:adminpassword@localhost:5432/drishtiscan
@@ -131,7 +151,8 @@ set OLLAMA_URL=http://localhost:11434
 uvicorn app.main:app --reload
 ```
 
-### Frontend Setup (Local)
+### Frontend
+
 ```bash
 cd frontend
 npm ci --legacy-peer-deps
@@ -140,27 +161,52 @@ VITE_API_BASE_URL=http://localhost:8000 npm run dev
 
 ---
 
-## Environment Variables (backend)
-- DATABASE_URL � PostgreSQL connection string
-- SECRET_KEY � JWT secret key
-- ACCESS_TOKEN_EXPIRE_MINUTES � Token expiry
-- GITHUB_TOKEN � Required for repo scanning
-- OLLAMA_URL � Local AI endpoint
-- UPLOAD_DIR � File upload path
-- MAX_UPLOAD_SIZE_MB � Upload size limit
+## 🔐 Environment Variables
+
+### Backend
+
+* `DATABASE_URL` — PostgreSQL connection string
+* `SECRET_KEY` — JWT secret key
+* `ACCESS_TOKEN_EXPIRE_MINUTES` — Token expiry
+* `GITHUB_TOKEN` — GitHub token for repo scans
+* `OLLAMA_URL` — Ollama endpoint
+* `OLLAMA_MODEL` — Model name (e.g., `deepseek-coder`)
+* `OLLAMA_TIMEOUT_SECONDS` — Timeout for AI calls
+* `UPLOAD_DIR` — File upload path
+* `MAX_UPLOAD_SIZE_MB` — Upload size limit
 
 ---
 
-## API Endpoints
-- Auth: POST /auth/register, POST /auth/login, GET /auth/profile
-- Scan: POST /scan/code, POST /scan/upload, POST /scan/repo
-- Reports: GET /reports/history, GET /reports/{scan_id}, GET /reports/{scan_id}/pdf
-- Health: GET /health
+## 🔌 API Endpoints
+
+### Authentication
+
+* `POST /auth/register`
+* `POST /auth/login`
+* `GET /auth/profile`
+
+### Scanning
+
+* `POST /scan/code`
+* `POST /scan/upload`
+* `POST /scan/repo`
+
+### Reports
+
+* `GET /reports/history`
+* `GET /reports/{scan_id}`
+* `GET /reports/{scan_id}/pdf`
+
+### Health
+
+* `GET /health`
 
 ---
 
-## Example Usage
-Code Scan
+## 📌 Example Usage
+
+### Code Scan
+
 ```bash
 curl -X POST http://localhost:8000/scan/code \
  -H "Authorization: Bearer TOKEN" \
@@ -168,7 +214,8 @@ curl -X POST http://localhost:8000/scan/code \
  -d '{"code":"import os\\nos.system(input())","file_name":"demo.py"}'
 ```
 
-Repo Scan
+### Repository Scan
+
 ```bash
 curl -X POST http://localhost:8000/scan/repo \
  -H "Authorization: Bearer TOKEN" \
@@ -178,7 +225,8 @@ curl -X POST http://localhost:8000/scan/repo \
 
 ---
 
-## Example Vulnerability Output
+## 🛡️ Example Vulnerability Output
+
 ```
 Type: SQL Injection
 Severity: Critical
@@ -190,45 +238,42 @@ Remediation: Use parameterized queries with placeholders.
 
 ---
 
-## AI Security Analysis
+## 🤖 AI Security Analysis
+
 DristiScan integrates with Ollama to provide:
-- AI-generated vulnerability explanations
-- Remediation suggestions
-- Executive summaries in reports
+
+* AI-generated vulnerability explanations
+* Remediation suggestions
+* Executive summaries
 
 ---
 
-## UI Preview
-- Dashboard
-- Scan Workspace
-- Scan Results
-- History
-- Reports
+## 🧠 Scanning Capabilities
+
+* Rule-based vulnerability engine (100+ rules)
+* Static analysis (SQLi, XSS, command injection, etc.)
+* Secret detection (API keys, tokens, credentials)
+* Dependency risk analysis
+* Optional AI-based insights
+* Risk scoring and severity classification
 
 ---
 
-## Scanning Capabilities
-- Rule-based vulnerability engine (100+ rules)
-- Static analysis (SQLi, command injection, XSS, etc.)
-- Secret detection (API keys, tokens, credentials)
-- Dependency risk detection
-- Optional AI-based analysis via Ollama
-- Risk scoring and severity classification
+## 🔗 GitHub Repository Scanning
+
+* Accepts repository URLs
+* Fetches code via GitHub API
+* Supports multi-language analysis
+* Generates unified vulnerability reports
 
 ---
 
-## GitHub Repository Scanning
-- Accepts repository URLs
-- Fetches files via GitHub API
-- Scans multi-language codebases
-- Aggregates vulnerabilities into a unified report
+## 🛠️ Development Tips
 
----
+* Use `docker logs` for debugging
+* Clean upload directories periodically
+* Reset environment:
 
-## Development Tips
-- Use docker logs for debugging containers
-- Clean uploads directory periodically
-- Reset database with:
 ```bash
 docker-compose down -v
 docker-compose up --build
@@ -236,59 +281,61 @@ docker-compose up --build
 
 ---
 
-## Production Checklist
-- Use managed PostgreSQL
-- Configure HTTPS (Nginx / Traefik)
-- Secure environment variables
-- Add Alembic migrations
-- Integrate Redis for rate limiting
-- Connect real vulnerability feeds (OSV, NVD)
+## 🚀 Production Checklist
+
+* Use managed PostgreSQL
+* Enable HTTPS (Nginx / Traefik)
+* Secure environment variables
+* Add Alembic migrations
+* Integrate Redis (rate limiting)
+* Connect vulnerability feeds (OSV, NVD)
 
 ---
 
-## Limitations
-- Rule-based scanning may produce false positives
-- Dependency database is limited
-- AI accuracy depends on model quality
-- Large repositories may increase scan time
+## ⚠️ Limitations
+
+* Rule-based scanning may produce false positives
+* Limited dependency database
+* AI accuracy depends on model quality
+* Large repositories may increase scan time
 
 ---
 
-## Future Improvements
-- CVE/NVD integration
-- Container security scanning
-- Distributed scan workers
-- Expanded language support
-- Advanced dependency intelligence
+## 🔮 Future Improvements
 
-## Environment Variables (clean reference)
-- `DATABASE_URL` � PostgreSQL connection string
-- `SECRET_KEY` � JWT secret key
-- `ACCESS_TOKEN_EXPIRE_MINUTES` � Token expiry
-- `GITHUB_TOKEN` � GitHub token for repo scans
-- `OLLAMA_URL` � Ollama base URL (e.g., `http://host.docker.internal:11434` or `http://172.17.0.1:11434` on WSL)
-- `OLLAMA_MODEL` � Model name (e.g., `deepseek-coder`)
-- `OLLAMA_TIMEOUT_SECONDS` � Timeout for Ollama calls
-- `UPLOAD_DIR` � File upload path
-- `MAX_UPLOAD_SIZE_MB` � Upload size limit
+* CVE/NVD integration
+* Container security scanning
+* Distributed scanning workers
+* Expanded language support
+* Advanced dependency intelligence
 
-### Ollama setup (Docker / WSL)
-1) Bind Ollama to all interfaces:
+---
+
+## 🤖 Ollama Setup (Docker / WSL)
+
+### 1. Start Ollama
+
 ```bash
 sudo pkill -f "ollama serve" || true
 sudo OLLAMA_HOST=0.0.0.0 ollama serve
 ```
-2) Pull a model:
+
+### 2. Pull Model
+
 ```bash
 OLLAMA_HOST=0.0.0.0 ollama pull deepseek-coder:latest
 ```
-3) In `.env` set a reachable URL:
+
+### 3. Configure `.env`
+
 ```bash
-OLLAMA_URL=http://host.docker.internal:11434   # or http://172.17.0.1:11434 in WSL
+OLLAMA_URL=http://host.docker.internal:11434
 OLLAMA_MODEL=deepseek-coder
 OLLAMA_TIMEOUT_SECONDS=60
 ```
-4) Restart backend:
+
+### 4. Restart Backend
+
 ```bash
 docker compose up -d backend
 ```
