@@ -55,12 +55,21 @@ const ScanProgress = ({ progress, isScanning, onCancel }) => {
                 {Math.round(progress)}%
               </motion.span>
             </div>
-            <div className="w-full h-2 bg-border rounded-full overflow-hidden">
+            <div className="w-full h-2 bg-border rounded-full overflow-hidden relative">
               <motion.div
                 className="h-full bg-gradient-to-r from-accent to-cyber rounded-full"
                 initial={{ width: 0 }}
                 animate={{ width: `${progress}%` }}
                 transition={{ duration: 0.25 }}
+              />
+              <motion.div
+                className="absolute inset-0 mix-blend-screen"
+                style={{
+                  background:
+                    'linear-gradient(120deg, transparent 0%, rgba(255,255,255,0.45) 50%, transparent 100%)',
+                }}
+                animate={{ x: ['-120%', '120%'] }}
+                transition={{ repeat: Infinity, duration: 1.4, ease: 'linear' }}
               />
             </div>
           </div>

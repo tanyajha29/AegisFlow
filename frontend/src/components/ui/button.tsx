@@ -2,6 +2,7 @@
 
 import React from "react"
 import clsx from "clsx"
+import { motion } from "framer-motion"
 
 type ButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement> & {
   variant?: "default" | "outline" | "ghost"
@@ -29,17 +30,25 @@ export function Button({
   ...props
 }: ButtonProps) {
   return (
-    <button
+    <motion.button
       className={clsx(
-        "inline-flex items-center justify-center gap-2 rounded-lg font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#3B82F6] focus-visible:ring-offset-transparent",
+        "inline-flex items-center justify-center gap-2 rounded-lg font-semibold transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#3B82F6] focus-visible:ring-offset-transparent",
+        variant === "default" && "bg-[length:200%_200%]",
         variantClasses[variant],
         sizeClasses[size],
         className
       )}
+      whileHover={{
+        scale: 1.02,
+        boxShadow: "0 0 24px rgba(59,130,246,0.35)",
+        backgroundPosition: variant === "default" ? "100% 50%" : undefined,
+      }}
+      whileTap={{ scale: 0.97 }}
+      transition={{ type: "spring", stiffness: 260, damping: 18 }}
       {...props}
     >
       {children}
-    </button>
+    </motion.button>
   )
 }
 

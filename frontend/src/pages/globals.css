@@ -111,6 +111,44 @@ body {
   transform: translateY(-2px);
 }
 
+/* Animated grid + ambience for dashboard */
+.animated-grid {
+  background-image:
+    linear-gradient(rgba(59, 130, 246, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(59, 130, 246, 0.05) 1px, transparent 1px);
+  background-size: 60px 60px;
+  animation: gridShift 18s linear infinite;
+}
+
+@keyframes gridShift {
+  0% { background-position: 0 0; }
+  100% { background-position: 120px 120px; }
+}
+
+.radial-blob {
+  position: absolute;
+  background: radial-gradient(circle, rgba(59,130,246,0.28), transparent 55%);
+  filter: blur(24px);
+  opacity: 0.5;
+}
+
+.particle-dot {
+  position: absolute;
+  border-radius: 9999px;
+  background: radial-gradient(circle, rgba(255,255,255,0.9), rgba(59,130,246,0.5));
+  box-shadow: 0 0 12px rgba(59, 130, 246, 0.35);
+}
+
+.mouse-light {
+  position: absolute;
+  width: 360px;
+  height: 360px;
+  border-radius: 9999px;
+  pointer-events: none;
+  background: radial-gradient(circle, rgba(59,130,246,0.20), transparent 60%);
+  mix-blend-mode: screen;
+}
+
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;

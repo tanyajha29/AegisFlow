@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
 import Sidebar from './Sidebar.jsx';
 import Topbar from './Topbar.jsx';
+import BackgroundFX from './BackgroundFX.jsx';
 
 const Layout = ({ children }) => {
   const [collapsed, setCollapsed] = useState(false);
 
   return (
-    <div className="flex min-h-screen bg-navy cyber-grid relative">
+    <div className="flex min-h-screen bg-navy cyber-grid relative overflow-hidden">
+      <BackgroundFX />
       <Sidebar collapsed={collapsed} onToggle={() => setCollapsed(!collapsed)} />
       <div className="flex-1 flex flex-col">
         <Topbar onToggleSidebar={() => setCollapsed(!collapsed)} />
