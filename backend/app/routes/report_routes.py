@@ -5,9 +5,9 @@ from starlette.responses import StreamingResponse
 from ..database import get_db
 from ..middleware.auth_middleware import get_current_user
 from ..models.scan_model import Scan
-from ..schemas.report_schema import Report, ReportHistory
+from ..schemas.report_schema import FullStructuredReportSchema, Report, ReportHistory
 from ..utils.file_handler import strip_generated_prefix
-from ..services.report_service import get_report, get_report_pdf
+from ..services.report_service import get_report, get_report_pdf, get_structured_report
 from ..services.risk_engine import risk_level
 
 
@@ -44,9 +44,9 @@ def history(db: Session = Depends(get_db), current_user=Depends(get_current_user
     return ReportHistory(reports=reports)
 
 
-@router.get("/{scan_id}", response_model=Report)
+@router.get("/{scan_id}", response_model=FullStructuredReportSchema)
 def fetch_report(scan_id: int, db: Session = Depends(get_db), current_user=Depends(get_current_user)):
-    return get_report(db, scan_id)
+    return get_structured_report(db, scan_id)
 
 
 @router.get("/{scan_id}/pdf")
