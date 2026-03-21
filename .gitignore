@@ -4,3 +4,12 @@
 # Local vulnerable test snippets (do not commit)
 vuln-samples/
 !vuln-samples/.gitkeep
+
+# Environment / secrets
+.env
+.env.local
+backend/.env
+frontend/.env
+.venv/
+*.pyc
+__pycache__/
