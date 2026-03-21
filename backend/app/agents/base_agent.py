@@ -13,12 +13,19 @@ from app.agents.schemas import AgentResult
 logger = logging.getLogger(__name__)
 
 
-def _resolve_endpoint(base_url: str) -> str:
-    """Ensure the Ollama endpoint points to /api/generate."""
+def _resolve_generate_endpoint(base_url: str) -> str:
+    """Return full /api/generate endpoint for Ollama."""
     sanitized = base_url.rstrip("/")
     if sanitized.endswith("/api/generate"):
         return sanitized
     return f"{sanitized}/api/generate"
+
+
+def _resolve_chat_endpoint(base_url: str) -> str:
+    sanitized = base_url.rstrip("/")
+    if sanitized.endswith("/api/chat"):
+        return sanitized
+    return f"{sanitized}/api/chat"
 
 
 class BaseAgent:
@@ -29,7 +36,9 @@ class BaseAgent:
         self.settings = get_settings()
         self.model = getattr(self.settings, "ollama_model", "deepseek-coder")
         self.timeout = getattr(self.settings, "ollama_timeout_seconds", 15.0)
-        self.endpoint = _resolve_endpoint(str(self.settings.ollama_url))
+        base = str(self.settings.ollama_url)
+        self.endpoint_generate = _resolve_generate_endpoint(base)
+        self.endpoint_chat = _resolve_chat_endpoint(base)
         self.system_instructions = (system_instructions or "").strip()
         self.client = httpx.Client(timeout=self.timeout)
 
@@ -51,14 +60,37 @@ class BaseAgent:
             "prompt": prompt,
             "stream": False,
         }
-        logger.debug("Sending prompt to Ollama model=%s endpoint=%s", self.model, self.endpoint)
-        response = self.client.post(self.endpoint, json=payload)
-        response.raise_for_status()
-        data = response.json()
-        text = data.get("response") or data.get("output") or ""
-        if not isinstance(text, str):
-            raise ValueError("Ollama response did not contain text output")
-        return text.strip()
+        logger.debug("Sending prompt to Ollama model=%s endpoint=%s", self.model, self.endpoint_generate)
+        try:
+            response = self.client.post(self.endpoint_generate, json=payload)
+            response.raise_for_status()
+            data = response.json()
+            text = data.get("response") or data.get("output")
+            if not isinstance(text, str):
+                raise ValueError("Ollama response did not contain text output")
+            return text.strip()
+        except httpx.HTTPStatusError as exc:
+            if exc.response.status_code not in (404, 405):
+                raise
+            # Fallback to chat API for newer/alternate Ollama builds
+            chat_payload = {
+                "model": self.model,
+                "messages": [{"role": "user", "content": prompt}],
+                "stream": False,
+            }
+            logger.debug("Falling back to chat endpoint=%s", self.endpoint_chat)
+            response = self.client.post(self.endpoint_chat, json=chat_payload)
+            response.raise_for_status()
+            data = response.json()
+            text = (
+                data.get("message", {}).get("content")
+                or data.get("response")
+                or data.get("output")
+                or ""
+            )
+            if not isinstance(text, str):
+                raise ValueError("Ollama chat response did not contain text output")
+            return text.strip()
 
     @staticmethod
     def _extract_json(text: str) -> Any:

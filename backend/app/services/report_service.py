@@ -44,26 +44,28 @@ def _build_styles():
         styles.add(ParagraphStyle(name="Heading", fontSize=16, leading=20, textColor=TEXT, spaceAfter=8))
     if "Body" not in styles:
         styles.add(ParagraphStyle(name="Body", fontSize=11, leading=14, textColor=TEXT))
-    styles.add(
-        ParagraphStyle(
-            name="Badge",
-            fontSize=10,
-            leading=12,
-            textColor=TEXT,
-            alignment=1,
-            padding=4,
+    if "Badge" not in styles:
+        styles.add(
+            ParagraphStyle(
+                name="Badge",
+                fontSize=10,
+                leading=12,
+                textColor=TEXT,
+                alignment=1,
+                padding=4,
+            )
         )
-    )
-    styles.add(
-        ParagraphStyle(
-            name="Code",
-            fontName="Courier",
-            fontSize=9,
-            leading=12,
-            textColor=TEXT,
-            backColor=colors.Color(0, 0, 0, alpha=0.15),
+    if "Code" not in styles:
+        styles.add(
+            ParagraphStyle(
+                name="Code",
+                fontName="Courier",
+                fontSize=9,
+                leading=12,
+                textColor=TEXT,
+                backColor=colors.Color(0, 0, 0, alpha=0.15),
+            )
         )
-    )
     return styles
 
 
