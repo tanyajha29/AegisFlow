@@ -134,14 +134,13 @@ docker-compose up --build
 
 ## 🖼️ Product Screens
 
-<p align="center">
-  <img src="docs/screens/dashboard.png" alt="Dashboard overview" width="45%" style="margin:8px; border:1px solid #e5e7eb; border-radius:12px;">
-  <img src="docs/screens/scan.png" alt="Scan launch form" width="45%" style="margin:8px; border:1px solid #e5e7eb; border-radius:12px;">
-</p>
-<p align="center">
-  <img src="docs/screens/results.png" alt="Findings & filters" width="45%" style="margin:8px; border:1px solid #e5e7eb; border-radius:12px;">
-  <img src="docs/screens/reports.png" alt="Report exports" width="45%" style="margin:8px; border:1px solid #e5e7eb; border-radius:12px;">
-</p>
+| Dashboard | Start a Scan |
+| --- | --- |
+| <img src="docs/screens/dashboard.png" alt="Dashboard overview" width="100%" style="border:1px solid #e5e7eb; border-radius:12px;"> | <img src="docs/screens/scan.png" alt="Scan launch form" width="100%" style="border:1px solid #e5e7eb; border-radius:12px;"> |
+
+| Findings | Reports |
+| --- | --- |
+| <img src="docs/screens/results.png" alt="Findings & filters" width="100%" style="border:1px solid #e5e7eb; border-radius:12px;"> | <img src="docs/screens/reports.png" alt="Report exports" width="100%" style="border:1px solid #e5e7eb; border-radius:12px;"> |
 
 ---
 
