@@ -240,11 +240,8 @@ Remediation: Use parameterized queries with placeholders.
 
 ## 🤖 AI Security Analysis
 
-DristiScan integrates with Ollama to provide:
-
-* AI-generated vulnerability explanations
-* Remediation suggestions
-* Executive summaries
+_(Temporarily disabled)_  
+The current build runs rule-based scanners only. AI agents and Ollama integration are turned off and will be reintroduced later.
 
 ---
 
@@ -339,3 +336,13 @@ OLLAMA_TIMEOUT_SECONDS=60
 ```bash
 docker compose up -d backend
 ```
+
+### Cross-host Docker tip
+
+If Ollama runs on a different machine than your Docker host (e.g., laptop vs. Ubuntu server), set `OLLAMA_URL` to the reachable IP of that machine, for example:
+
+```
+OLLAMA_URL=http://192.168.1.50:11434
+```
+
+Ensure Ollama is started with `OLLAMA_HOST=0.0.0.0 ollama serve` (or equivalent) and that port `11434` is open to the Docker host.

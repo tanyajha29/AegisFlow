@@ -37,12 +37,12 @@ class Settings(BaseSettings):
     ollama_url: AnyHttpUrl | str = Field(default="http://localhost:11434", description="Ollama base URL")
     ollama_model: str = Field(default="deepseek-coder", description="Default Ollama model for AI agents")
     ollama_timeout_seconds: float = Field(default=15.0, description="HTTP timeout for Ollama calls")
-    ai_injection_enabled: bool = Field(default=True, description="Enable Injection Agent (Phase 2)")
-    ai_secrets_enabled: bool = Field(default=True, description="Enable Secrets Agent (Phase 3)")
-    ai_auth_enabled: bool = Field(default=True, description="Enable Auth Agent (Phase 4)")
-    ai_dependency_enabled: bool = Field(default=True, description="Enable Dependency Agent (Phase 5)")
-    ai_planner_enabled: bool = Field(default=True, description="Enable Planner Agent (Phase 6)")
-    ai_report_enabled: bool = Field(default=True, description="Enable Report Agent (Phase 9)")
+    ai_injection_enabled: bool = Field(default=False, description="Enable Injection Agent (Phase 2)")
+    ai_secrets_enabled: bool = Field(default=False, description="Enable Secrets Agent (Phase 3)")
+    ai_auth_enabled: bool = Field(default=False, description="Enable Auth Agent (Phase 4)")
+    ai_dependency_enabled: bool = Field(default=False, description="Enable Dependency Agent (Phase 5)")
+    ai_planner_enabled: bool = Field(default=False, description="Enable Planner Agent (Phase 6)")
+    ai_report_enabled: bool = Field(default=False, description="Enable Report Agent (Phase 9)")
 
     class Config:
         env_file = ".env"

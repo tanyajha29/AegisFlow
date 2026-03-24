@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+import time
 from typing import Any, Dict, Optional
 
 import httpx
@@ -11,6 +12,30 @@ from app.config import get_settings
 from app.agents.schemas import AgentResult
 
 logger = logging.getLogger(__name__)
+
+
+_health_cache: dict[str, Any] = {"status": None, "ts": 0.0}
+
+
+def _check_ollama_health(base_url: str, timeout: float = 3.0, cache_seconds: float = 15.0) -> bool:
+    """
+    Probe Ollama once every `cache_seconds` to avoid noisy connection refused errors.
+    Returns True if the /api/tags endpoint responds; False otherwise.
+    """
+    now = time.time()
+    cached = _health_cache.get("status")
+    ts = _health_cache.get("ts", 0.0)
+    if cached is not None and (now - ts) < cache_seconds:
+        return bool(cached)
+
+    health_url = base_url.rstrip("/") + "/api/tags"
+    try:
+        httpx.get(health_url, timeout=timeout)
+        _health_cache.update({"status": True, "ts": now})
+        return True
+    except Exception:
+        _health_cache.update({"status": False, "ts": now})
+        return False
 
 
 def _resolve_generate_endpoint(base_url: str) -> str:
@@ -39,6 +64,7 @@ class BaseAgent:
         base = str(self.settings.ollama_url)
         self.endpoint_generate = _resolve_generate_endpoint(base)
         self.endpoint_chat = _resolve_chat_endpoint(base)
+        self.health_url = base.rstrip("/") + "/api/tags"
         self.system_instructions = (system_instructions or "").strip()
         self.client = httpx.Client(timeout=self.timeout)
 
@@ -142,6 +168,14 @@ class BaseAgent:
 
     def run(self, code_snippet: str, task: str, instructions: Optional[str] = None) -> AgentResult:
         """Invoke Ollama and return a validated result."""
+        if not _check_ollama_health(str(self.settings.ollama_url), timeout=min(self.timeout, 5.0)):
+            msg = (
+                f"[{self.name}] Ollama is not reachable at {self.health_url}. "
+                "Ensure OLLAMA_URL points to a reachable host/port (default 11434) and that the service is running."
+            )
+            logger.error(msg)
+            return AgentResult(agent=self.name, findings=[], logs=[msg])
+
         prompt = self.build_prompt(code_snippet, task)
         if instructions:
             prompt = instructions.strip() + "\n\n" + prompt

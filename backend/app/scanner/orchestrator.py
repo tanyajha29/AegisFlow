@@ -8,7 +8,6 @@ from .rule_engine import RuleEngineScanner
 from ..scanners.sast_scanner import scan_code as sast_scan
 from ..scanners.secret_scanner import scan_for_secrets
 from ..scanners.dependency_scanner import scan_dependencies
-from .ai_scanner import analyze_with_ai
 
 
 _rule_engine = RuleEngineScanner()
@@ -91,7 +90,7 @@ def run_bandit(file_name: str, content: str) -> List[Dict[str, Any]]:
 async def run_pipeline(file_name: str, content: str) -> tuple[list[Dict[str, Any]], Dict[str, Any]]:
     """
     Modular pipeline that can be extended easily.
-    Returns (findings, ai_meta) where ai_meta includes agents_used/logs/raw_agent_results.
+    Returns (findings, ai_meta). AI metadata is empty because agents are disabled.
     """
     findings: List[Dict[str, Any]] = []
     findings.extend(_rule_engine.scan(content, file_name))
@@ -101,8 +100,12 @@ async def run_pipeline(file_name: str, content: str) -> tuple[list[Dict[str, Any
     findings.extend(run_semgrep(file_name, content))
     findings.extend(run_bandit(file_name, content))
 
-    ai_meta = await analyze_with_ai(file_name, content)
-    findings.extend(ai_meta.get("findings", []))
+    ai_meta = {
+        "findings": [],
+        "agents_used": [],
+        "logs": ["AI agents are disabled; rule-based scanners only."],
+        "raw_agent_results": [],
+    }
     return findings, ai_meta
 
 
