@@ -3,7 +3,7 @@
   <img src="docs/screens/logo.png" alt="DristiScan Logo" width="220" />
 </p>
 
-<h1 align="center">DristiScan — Cloud Code Security Scanner</h1>
+<h1 align="center">DristiScan — Code Security Scanner</h1>
 
 <p align="center">
 A modern DevSecOps-inspired platform for scanning source code, dependencies, and GitHub repositories to detect vulnerabilities and generate professional security reports.
