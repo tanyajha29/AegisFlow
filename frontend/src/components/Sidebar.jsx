@@ -26,7 +26,7 @@ const Sidebar = ({ collapsed, onToggle }) => {
 
   return (
     <aside
-      className={`fixed md:static z-30 h-screen md:h-auto w-72 md:w-72 glass-card bg-[rgba(15,23,42,0.9)] border border-[rgba(59,130,246,0.2)] backdrop-blur-2xl transition-all duration-300 ${
+      className={`fixed md:sticky md:top-0 z-30 h-screen md:h-screen w-72 md:w-72 glass-card bg-card border border-border backdrop-blur-2xl transition-all duration-300 ${
         collapsed ? '-translate-x-full md:translate-x-0' : 'translate-x-0'
       }`}
     >
@@ -49,8 +49,8 @@ const Sidebar = ({ collapsed, onToggle }) => {
             key={to}
             to={to}
             className={({ isActive }) =>
-              `flex items-center gap-3 px-4 py-3 rounded-xl transition hover:bg-white/5 ${
-                isActive ? 'bg-white/10 border border-border text-white' : 'text-slate-300'
+              `flex items-center gap-3 px-4 py-3 rounded-xl transition ${
+                isActive ? 'bg-accent/15 border border-accent/40 text-accent shadow-glow' : 'text-slate-400 hover:text-white hover:bg-white/5'
               }`
             }
           >
@@ -63,7 +63,7 @@ const Sidebar = ({ collapsed, onToggle }) => {
       <div className="px-4 py-6 mt-auto">
         <button
           onClick={logout}
-          className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 transition border border-border"
+          className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-red-500/10 hover:bg-red-500/15 text-red-400 transition border border-red-500/30 hover:border-red-500/50"
         >
           <ArrowRightStartOnRectangleIcon className="h-5 w-5" />
           Logout

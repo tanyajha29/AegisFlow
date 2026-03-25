@@ -37,7 +37,7 @@ const AgentPanel = ({ agentsUsed = [], logs = [], loading = false }) => {
     <motion.div
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
-      className="p-4 rounded-xl border border-border bg-card shadow-glow space-y-4"
+      className="p-5 rounded-xl border border-accent/30 bg-card shadow-glow space-y-4"
     >
       <div className="flex items-center justify-between">
         <div>
@@ -56,11 +56,11 @@ const AgentPanel = ({ agentsUsed = [], logs = [], loading = false }) => {
             <motion.div
               key={agent.label}
               whileHover={{ scale: 1.01 }}
-              className={`flex items-center justify-between px-3 py-2 rounded-lg border ${
-                active ? 'border-accent/40 bg-accent/5' : 'border-border bg-white/5'
+              className={`flex items-center justify-between px-3 py-2 rounded-lg border transition ${
+                active ? 'border-accent/40 bg-accent/10 shadow-glow' : 'border-border bg-white/5'
               }`}
             >
-              <div className="flex items-center gap-2 text-slate-100">
+              <div className={`flex items-center gap-2 ${active ? 'text-accent' : 'text-slate-300'}`}>
                 <Icon className={`h-4 w-4 ${active ? 'text-accent' : 'text-slate-400'}`} />
                 <span className="text-sm">{agent.label}</span>
               </div>

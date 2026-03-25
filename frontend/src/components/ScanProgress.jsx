@@ -20,7 +20,7 @@ const ScanProgress = ({ progress, isScanning, onCancel }) => {
     <motion.div
       initial={{ opacity: 0, scale: 0.96 }}
       animate={{ opacity: 1, scale: 1 }}
-      className="relative rounded-xl border border-border bg-card p-6 overflow-hidden h-full flex flex-col shadow-glow"
+      className="relative rounded-xl border border-accent/30 bg-card p-6 overflow-hidden h-full flex flex-col shadow-glow"
     >
       <motion.div
         className="absolute inset-0 opacity-5"
@@ -75,7 +75,7 @@ const ScanProgress = ({ progress, isScanning, onCancel }) => {
           </div>
         )}
 
-        <div className="space-y-2 flex-1 mb-6">
+        <div className="space-y-2 mb-6 max-h-48 overflow-y-auto">
           {scanSteps.map((step, idx) => {
             const isCompleted = progress >= step.completion;
             const isActive = currentStep === step && isScanning;
