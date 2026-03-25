@@ -306,26 +306,6 @@ docker-compose up --build
 * Connect vulnerability feeds (OSV, NVD)
 
 ---
-
-## ⚠️ Limitations
-
-* Rule-based scanning may produce false positives
-* Limited dependency database
-* AI accuracy depends on model quality
-* Large repositories may increase scan time
-
----
-
-## 🔮 Future Improvements
-
-* CVE/NVD integration
-* Container security scanning
-* Distributed scanning workers
-* Expanded language support
-* Advanced dependency intelligence
-
----
-
 ## 🤖 Ollama Setup (Docker / WSL)
 
 ### 1. Start Ollama
