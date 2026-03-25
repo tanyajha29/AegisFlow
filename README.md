@@ -20,13 +20,7 @@
   <img src="https://img.shields.io/badge/Security-DevSecOps-red" />
 </p>
 
-<p align="center">
-A production-grade DevSecOps platform that combines static analysis with Retrieval-Augmented Generation (RAG) to deliver context-aware, explainable, and remediation-focused security intelligence.
-</p>
 
-<p align="center">
-  <b>SAST • RAG Intelligence • AI Fix Suggestions • pgvector • Ollama</b>
-</p>
 
 ---
 
