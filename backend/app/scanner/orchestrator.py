@@ -4,6 +4,9 @@ import tempfile
 from pathlib import Path
 from typing import Any, Dict, List
 
+from app.agents.injection_agent import run_injection_agent
+from app.agents.secrets_agent import run_secrets_agent
+
 from .rule_engine import RuleEngineScanner
 from ..scanners.sast_scanner import scan_code as sast_scan
 from ..scanners.secret_scanner import scan_for_secrets
@@ -87,10 +90,63 @@ def run_bandit(file_name: str, content: str) -> List[Dict[str, Any]]:
         shutil.rmtree(temp_path.parent, ignore_errors=True)
 
 
+def _convert_injection_findings(ai_findings: List[Dict[str, Any]], file_name: str) -> List[Dict[str, Any]]:
+    """
+    Map Injection Agent output into the shared vulnerability structure.
+    """
+    converted: List[Dict[str, Any]] = []
+    for item in ai_findings:
+        if not isinstance(item, dict):
+            continue
+
+        converted.append(
+            {
+                "name": item.get("title") or "Injection Finding",
+                "severity": str(item.get("severity") or "Medium").title(),
+                "description": item.get("description") or "",
+                "remediation": item.get("remediation") or "Review and fix the issue.",
+                "file_name": item.get("file") or Path(file_name).name,
+                "line_number": item.get("line") if item.get("line") not in ("", None) else None,
+                "category": "Injection Agent",
+                "detected_by": item.get("detected_by") or ["Injection Agent"],
+            }
+        )
+    return converted
+
+
+def _convert_secret_findings(ai_findings: List[Dict[str, Any]], file_name: str) -> List[Dict[str, Any]]:
+    """
+    Map Secrets Agent output into the shared vulnerability structure.
+    """
+    converted: List[Dict[str, Any]] = []
+    for item in ai_findings:
+        if not isinstance(item, dict):
+            continue
+
+        converted.append(
+            {
+                "name": item.get("title") or "Secrets Exposure",
+                "severity": str(item.get("severity") or "High").title(),
+                "description": item.get("description") or "",
+                "remediation": item.get("remediation")
+                or "Rotate the secret, remove it from code, and store it securely.",
+                "file_name": item.get("file") or Path(file_name).name,
+                "line_number": item.get("line") if item.get("line") not in ("", None) else None,
+                "category": "Secrets Agent",
+                "detected_by": item.get("detected_by") or ["Secrets Agent"],
+            }
+        )
+    return converted
+
+
 async def run_pipeline(file_name: str, content: str) -> tuple[list[Dict[str, Any]], Dict[str, Any]]:
     """
-    Modular pipeline that can be extended easily.
-    Returns (findings, ai_meta). AI metadata is empty because agents are disabled.
+    Modular pipeline:
+    - Rule/heuristic scanners
+    - Optional third-party tools
+    - Injection Agent (Ollama)
+    - Secrets Agent (Ollama)
+    Returns (findings, ai_meta).
     """
     findings: List[Dict[str, Any]] = []
     findings.extend(_rule_engine.scan(content, file_name))
@@ -100,12 +156,39 @@ async def run_pipeline(file_name: str, content: str) -> tuple[list[Dict[str, Any
     findings.extend(run_semgrep(file_name, content))
     findings.extend(run_bandit(file_name, content))
 
-    ai_meta = {
+    ai_meta: Dict[str, Any] = {
         "findings": [],
         "agents_used": [],
-        "logs": ["AI agents are disabled; rule-based scanners only."],
+        "logs": [],
         "raw_agent_results": [],
     }
+
+    # Injection Agent runs after traditional scanners
+    try:
+        ai_raw = run_injection_agent(content, file_name=file_name)
+        ai_meta["raw_agent_results"].append({"agent": "Injection Agent", "raw": ai_raw})
+        converted = _convert_injection_findings(ai_raw, file_name)
+        if converted:
+            ai_meta["findings"].extend(converted)
+            ai_meta["agents_used"].append("Injection Agent")
+        ai_meta["logs"].append(f"Injection Agent completed ({len(ai_raw)} findings reported).")
+        findings.extend(converted)
+    except Exception as exc:  # pragma: no cover - defensive guard
+        ai_meta["logs"].append(f"Injection Agent error: {exc}")
+
+    # Secrets Agent runs after Injection Agent
+    try:
+        secrets_raw = run_secrets_agent(content, file_name=file_name)
+        ai_meta["raw_agent_results"].append({"agent": "Secrets Agent", "raw": secrets_raw})
+        secrets_converted = _convert_secret_findings(secrets_raw, file_name)
+        if secrets_converted:
+            ai_meta["findings"].extend(secrets_converted)
+            ai_meta["agents_used"].append("Secrets Agent")
+        ai_meta["logs"].append(f"Secrets Agent completed ({len(secrets_raw)} findings reported).")
+        findings.extend(secrets_converted)
+    except Exception as exc:  # pragma: no cover - defensive guard
+        ai_meta["logs"].append(f"Secrets Agent error: {exc}")
+
     return findings, ai_meta
 
 

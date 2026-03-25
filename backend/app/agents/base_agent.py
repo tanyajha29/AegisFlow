@@ -2,216 +2,175 @@ from __future__ import annotations
 
 import json
 import logging
-import time
-from typing import Any, Dict, Optional
+import os
+from typing import Any, Optional
 
-import httpx
-from pydantic import ValidationError
+import requests
+from requests import Response
 
-from app.config import get_settings
 from app.agents.schemas import AgentResult
 
 logger = logging.getLogger(__name__)
 
 
-_health_cache: dict[str, Any] = {"status": None, "ts": 0.0}
+DEFAULT_OLLAMA_URL = "http://localhost:11434/api/generate"
+DEFAULT_OLLAMA_MODEL = "deepseek-coder"
+DEFAULT_TIMEOUT_SECONDS = 60
 
 
-def _check_ollama_health(base_url: str, timeout: float = 3.0, cache_seconds: float = 15.0) -> bool:
+def _normalize_endpoint(url: str) -> str:
     """
-    Probe Ollama once every `cache_seconds` to avoid noisy connection refused errors.
-    Returns True if the /api/tags endpoint responds; False otherwise.
+    Ensure we target the Ollama /api/generate endpoint even if a base URL is provided.
     """
-    now = time.time()
-    cached = _health_cache.get("status")
-    ts = _health_cache.get("ts", 0.0)
-    if cached is not None and (now - ts) < cache_seconds:
-        return bool(cached)
-
-    health_url = base_url.rstrip("/") + "/api/tags"
-    try:
-        httpx.get(health_url, timeout=timeout)
-        _health_cache.update({"status": True, "ts": now})
-        return True
-    except Exception:
-        _health_cache.update({"status": False, "ts": now})
-        return False
-
-
-def _resolve_generate_endpoint(base_url: str) -> str:
-    """Return full /api/generate endpoint for Ollama."""
-    sanitized = base_url.rstrip("/")
-    if sanitized.endswith("/api/generate"):
-        return sanitized
-    return f"{sanitized}/api/generate"
-
-
-def _resolve_chat_endpoint(base_url: str) -> str:
-    sanitized = base_url.rstrip("/")
-    if sanitized.endswith("/api/chat"):
-        return sanitized
-    return f"{sanitized}/api/chat"
+    cleaned = (url or "").rstrip("/")
+    if cleaned.endswith("/api/generate"):
+        return cleaned
+    if cleaned.endswith("/api"):
+        return f"{cleaned}/generate"
+    return f"{cleaned}/api/generate" if cleaned else DEFAULT_OLLAMA_URL
 
 
 class BaseAgent:
-    """Shared Ollama-backed agent helpers."""
+    """
+    Lightweight, reusable helper for calling an Ollama model with a prompt.
+    Uses environment variables:
+    - OLLAMA_URL (default http://localhost:11434/api/generate)
+    - OLLAMA_MODEL (default deepseek-coder)
+    - OLLAMA_TIMEOUT_SECONDS (default 60)
+    """
 
-    def __init__(self, name: str, system_instructions: str | None = None):
-        self.name = name
-        self.settings = get_settings()
-        self.model = getattr(self.settings, "ollama_model", "deepseek-coder")
-        self.timeout = getattr(self.settings, "ollama_timeout_seconds", 15.0)
-        base = str(self.settings.ollama_url)
-        self.endpoint_generate = _resolve_generate_endpoint(base)
-        self.endpoint_chat = _resolve_chat_endpoint(base)
-        self.health_url = base.rstrip("/") + "/api/tags"
+    def __init__(
+        self,
+        name: str | None = None,
+        system_instructions: Optional[str] = None,
+        model: Optional[str] = None,
+        url: Optional[str] = None,
+        timeout_seconds: Optional[float] = None,
+    ) -> None:
+        self.name = name or "Base Agent"
         self.system_instructions = (system_instructions or "").strip()
-        self.client = httpx.Client(timeout=self.timeout)
-
-    def build_prompt(self, code_snippet: str, task: str) -> str:
-        """Compose a deterministic prompt that demands strict JSON."""
-        schema_hint = json.dumps(AgentResult.model_json_schema(), indent=2)
-        return (
-            f"{self.system_instructions}\n"
-            f"Task: {task}\n"
-            "Always respond with valid JSON only. Do not include prose, code fences, or comments.\n"
-            f"Use this JSON schema (fields are required unless marked optional):\n{schema_hint}\n"
-            "Input code/content to analyze:\n"
-            f"{code_snippet}\n"
-        )
-
-    def _call_ollama(self, prompt: str) -> str:
-        payload: Dict[str, Any] = {
-            "model": self.model,
-            "prompt": prompt,
-            "stream": False,
-        }
-        logger.debug("Sending prompt to Ollama model=%s endpoint=%s", self.model, self.endpoint_generate)
+        self.model = (model or os.getenv("OLLAMA_MODEL") or DEFAULT_OLLAMA_MODEL).strip()
+        raw_url = url or os.getenv("OLLAMA_URL") or DEFAULT_OLLAMA_URL
+        self.url = _normalize_endpoint(raw_url)
         try:
-            response = self.client.post(self.endpoint_generate, json=payload)
-            response.raise_for_status()
-            data = response.json()
-            text = data.get("response") or data.get("output")
-            if not isinstance(text, str):
-                raise ValueError("Ollama response did not contain text output")
-            return text.strip()
-        except httpx.HTTPStatusError as exc:
-            if exc.response.status_code not in (404, 405):
-                raise
-            # Fallback to chat API for newer/alternate Ollama builds
-            chat_payload = {
-                "model": self.model,
-                "messages": [{"role": "user", "content": prompt}],
-                "stream": False,
-            }
-            logger.debug("Falling back to chat endpoint=%s", self.endpoint_chat)
-            response = self.client.post(self.endpoint_chat, json=chat_payload)
-            response.raise_for_status()
-            data = response.json()
-            text = (
-                data.get("message", {}).get("content")
-                or data.get("response")
-                or data.get("output")
-                or ""
-            )
-            if not isinstance(text, str):
-                raise ValueError("Ollama chat response did not contain text output")
-            return text.strip()
+            self.timeout = float(timeout_seconds or os.getenv("OLLAMA_TIMEOUT_SECONDS", DEFAULT_TIMEOUT_SECONDS))
+        except (TypeError, ValueError):
+            self.timeout = float(DEFAULT_TIMEOUT_SECONDS)
 
+    # ---- HTTP helpers -------------------------------------------------
+    def _post(self, prompt: str) -> Response:
+        payload = {"model": self.model, "prompt": prompt, "stream": False}
+        return requests.post(self.url, json=payload, timeout=self.timeout)
+
+    def send_prompt(self, prompt: str) -> str:
+        """
+        Send a prompt to Ollama and return the raw text response.
+        Returns an empty string on any failure to keep callers safe.
+        """
+        try:
+            response = self._post(prompt)
+            response.raise_for_status()
+            try:
+                data = response.json()
+            except ValueError:
+                logger.warning("Ollama response was not JSON-decoded; returning empty output.")
+                return ""
+
+            text = data.get("response") or data.get("output") or ""
+            if isinstance(text, str):
+                return text.strip()
+            logger.warning("Unexpected Ollama payload shape; expected 'response' text.")
+            return ""
+        except requests.Timeout:
+            logger.error("Ollama request timed out after %s seconds", self.timeout)
+            return ""
+        except requests.RequestException as exc:
+            logger.error("Ollama request failed: %s", exc)
+            return ""
+        except Exception as exc:  # pragma: no cover - catch-all for safety
+            logger.error("Unhandled error when calling Ollama: %s", exc)
+            return ""
+
+    # ---- JSON parsing helpers -----------------------------------------
     @staticmethod
-    def _extract_json(text: str) -> Any:
-        """Attempt to parse JSON, repairing common LLM wrappers."""
-        # direct parse
+    def safe_json_loads(text: str) -> Any:
+        """
+        Attempt to parse JSON while tolerating minor formatting issues.
+        Returns None on failure.
+        """
+        if not text:
+            return None
         try:
             return json.loads(text)
         except json.JSONDecodeError:
             pass
 
-        # fenced blocks ```json ... ```
-        if "```" in text:
-            parts = text.split("```")
-            for part in parts:
-                part = part.strip()
-                if part.lower().startswith("json"):
-                    maybe = part[4:].strip()
-                else:
-                    maybe = part
-                try:
-                    return json.loads(maybe)
-                except json.JSONDecodeError:
-                    continue
-
-        # fallback: find first and last brace
-        if "{" in text and "}" in text:
-            start = text.find("{")
-            end = text.rfind("}") + 1
+        # try to salvage bracketed content
+        starts = [text.find("["), text.find("{")]
+        ends = [text.rfind("]"), text.rfind("}")]
+        start_candidates = [s for s in starts if s != -1]
+        end_candidates = [e for e in ends if e != -1]
+        if start_candidates and end_candidates:
+            start = min(start_candidates)
+            end = max(end_candidates) + 1
             snippet = text[start:end]
             try:
                 return json.loads(snippet)
             except json.JSONDecodeError:
-                pass
+                return None
+        return None
 
-        raise ValueError("Unable to parse JSON from agent response")
+    @staticmethod
+    def ensure_list_of_dicts(payload: Any) -> list[dict[str, Any]]:
+        """
+        Normalize arbitrary JSON payloads into a list of dictionaries.
+        Non-dict items are ignored; None returns an empty list.
+        """
+        if not payload:
+            return []
+        if isinstance(payload, dict):
+            return [payload]
+        if isinstance(payload, list):
+            return [item for item in payload if isinstance(item, dict)]
+        return []
 
-    def parse_response(self, raw_text: str) -> AgentResult:
-        """Convert raw LLM output into a validated AgentResult."""
-        try:
-            parsed = self._extract_json(raw_text)
-            return AgentResult.model_validate(parsed)
-        except (ValueError, ValidationError) as exc:
-            logger.warning("Agent %s returned invalid JSON: %s", self.name, exc)
-            return AgentResult(
-                agent=self.name,
-                findings=[],
-                logs=[f"[{self.name}] Invalid response ignored: {exc}"],
-            )
+    # ---- Compatibility runner for other agents ------------------------
+    def build_prompt(self, code_snippet: str, task: str, instructions: Optional[str] = None) -> str:
+        parts = []
+        if self.system_instructions:
+            parts.append(self.system_instructions)
+        if instructions:
+            parts.append(instructions.strip())
+        if task:
+            parts.append(task.strip())
+        parts.append("Return ONLY valid JSON. No markdown or code fences.")
+        parts.append(f"Input:\n{code_snippet}")
+        return "\n\n".join(parts)
 
     def run(self, code_snippet: str, task: str, instructions: Optional[str] = None) -> AgentResult:
-        """Invoke Ollama and return a validated result."""
-        if not _check_ollama_health(str(self.settings.ollama_url), timeout=min(self.timeout, 5.0)):
-            msg = (
-                f"[{self.name}] Ollama is not reachable at {self.health_url}. "
-                "Ensure OLLAMA_URL points to a reachable host/port (default 11434) and that the service is running."
-            )
-            logger.error(msg)
-            return AgentResult(agent=self.name, findings=[], logs=[msg])
-
-        prompt = self.build_prompt(code_snippet, task)
-        if instructions:
-            prompt = instructions.strip() + "\n\n" + prompt
+        """
+        Backwards-compatible runner that returns an AgentResult.
+        Intended for future/legacy agents; Injection Agent uses direct helpers.
+        """
+        prompt = self.build_prompt(code_snippet, task, instructions)
+        raw = self.send_prompt(prompt)
+        parsed = self.safe_json_loads(raw)
+        if parsed is None:
+            return AgentResult(agent=self.name, findings=[], logs=[f"[{self.name}] Invalid or empty response."])
         try:
-            raw = self._call_ollama(prompt)
-            result = self.parse_response(raw)
-            if not result.agent:
-                result.agent = self.name
-            if not result.logs:
-                result.logs = [f"[{self.name}] Completed analysis."]
-            return result
-        except Exception as exc:
-            logger.error("Agent %s failed: %s", self.name, exc)
-            return AgentResult(
-                agent=self.name,
-                findings=[],
-                logs=[f"[{self.name}] Error: {exc}"],
-            )
+            result = AgentResult.model_validate(parsed)
+        except Exception as exc:  # pragma: no cover - defensive
+            logger.warning("Agent %s returned invalid payload: %s", self.name, exc)
+            return AgentResult(agent=self.name, findings=[], logs=[f"[{self.name}] Invalid response ignored: {exc}"])
+        if not result.agent:
+            result.agent = self.name
+        return result
 
 
+# Backwards compatibility helper used by older tests or utilities.
 class TestEchoAgent(BaseAgent):
-    """Minimal agent for phase-1 validation."""
-
-    def __init__(self):
-        super().__init__(name="Test Agent", system_instructions="You are a JSON-only security assistant.")
-
-    def analyze(self, code_snippet: str) -> AgentResult:
-        task = (
-            "Echo back an empty findings list and a short log line summarizing the size of the input. "
-            "Use the provided JSON schema strictly."
-        )
-        return self.run(code_snippet=code_snippet, task=task)
-
-
-if __name__ == "__main__":
-    sample_code = "print('hello world')\n"
-    agent = TestEchoAgent()
-    output = agent.analyze(sample_code)
-    print(output.model_dump_json(indent=2))
+    def analyze(self, text: str) -> list[dict[str, Any]]:
+        prompt = f"Echo back an empty JSON array. Input length: {len(text)}"
+        raw = self.send_prompt(prompt)
+        parsed = self.safe_json_loads(raw)
+        return self.ensure_list_of_dicts(parsed)

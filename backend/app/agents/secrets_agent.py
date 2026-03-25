@@ -1,44 +1,112 @@
 from __future__ import annotations
 
-from typing import Optional
+import logging
+from typing import Any, Dict, List, Optional
 
 from app.agents.base_agent import BaseAgent
-from app.agents.schemas import AgentResult
 
+logger = logging.getLogger(__name__)
 
-SECRETS_TASK = """
-Analyze the provided content ONLY for exposed secrets and credentials:
-- API keys (AWS, GCP, Azure, Stripe, GitHub, etc.)
-- Hardcoded passwords
-- Private keys / certificates
-- Tokens (JWT, bearer tokens, PATs)
-For each secret, provide title, severity, file, line (if available), remediation, and confidence.
-Return strictly valid JSON per schema; if nothing is found, return an empty findings array.
-Include concise log lines of your actions.
-"""
+SCHEMA_EXAMPLE = """
+[
+  {
+    "title": "",
+    "severity": "",
+    "description": "",
+    "remediation": "",
+    "file": "",
+    "line": 0,
+    "detected_by": ["Secrets Agent"]
+  }
+]
+""".strip()
 
 
 class SecretsAgent(BaseAgent):
-    def __init__(self) -> None:
-        super().__init__(
-            name="Secrets Agent",
-            system_instructions=(
-                "You are a secrets-detection specialist. Output strictly valid JSON. "
-                "No prose, no markdown, no code fences."
-            ),
+    """
+    AI-powered helper that asks Ollama to flag exposed secrets/credentials.
+    """
+
+    def build_prompt(self, code: str, file_name: Optional[str]) -> str:
+        file_hint = file_name or "the file being scanned"
+        return (
+            "You are a secrets-detection specialist.\n"
+            "Analyze the provided code ONLY for exposed secrets and credentials:\n"
+            "- API keys\n"
+            "- access tokens\n"
+            "- private keys\n"
+            "- hardcoded passwords\n"
+            "- exposed credentials\n"
+            "Return ONLY valid JSON. No markdown, no code fences, no explanations outside JSON.\n"
+            "Use exactly this schema:\n"
+            f"{SCHEMA_EXAMPLE}\n"
+            "Rules:\n"
+            "- If no secrets are present, return an empty JSON array []\n"
+            "- Use integers for the line field; use 0 when the line is unknown\n"
+            f"- Set the file field to '{file_hint}' when unsure\n"
+            "Now analyze the following code and respond with JSON only:\n"
+            f"File: {file_hint}\n"
+            f"{code}\n"
         )
 
-    def analyze(self, content: str, file_path: Optional[str] = None) -> AgentResult:
-        extra = f"File: {file_path}\n" if file_path else ""
-        instructions = (
-            f"{extra}Focus ONLY on secrets/credentials. Ignore non-secret issues such as injection or auth logic."
-        )
-        result = self.run(code_snippet=content, task=SECRETS_TASK, instructions=instructions)
+    def _normalize(self, data: Any, file_name: Optional[str]) -> List[Dict[str, Any]]:
+        normalized: List[Dict[str, Any]] = []
+        if not isinstance(data, list):
+            return []
 
-        result.agent = "Secrets Agent"
-        for finding in result.findings:
-            if "Secrets Agent" not in finding.detected_by:
-                finding.detected_by.append("Secrets Agent")
-        if not result.logs:
-            result.logs = [f"[Secrets] Analyzed {file_path or 'snippet'}"]
-        return result
+        for item in data:
+            if not isinstance(item, dict):
+                continue
+
+            title = (item.get("title") or "Secrets Exposure").strip()
+            severity_raw = item.get("severity") or "High"
+            severity = str(severity_raw).strip().title()
+            description = str(item.get("description") or "").strip()
+            remediation = str(
+                item.get("remediation") or "Rotate the secret, remove it from code, and move to a secure store."
+            ).strip()
+            file_value = str(item.get("file") or file_name or "unknown").strip()
+
+            line_raw = item.get("line", 0)
+            try:
+                line_num = int(line_raw) if line_raw is not None else 0
+            except (TypeError, ValueError):
+                line_num = 0
+
+            detected_by = item.get("detected_by") or []
+            if isinstance(detected_by, str):
+                detected_by = [detected_by]
+            detected_by = list(detected_by)
+            if "Secrets Agent" not in detected_by:
+                detected_by.append("Secrets Agent")
+
+            normalized.append(
+                {
+                    "title": title,
+                    "severity": severity,
+                    "description": description,
+                    "remediation": remediation,
+                    "file": file_value,
+                    "line": line_num,
+                    "detected_by": detected_by or ["Secrets Agent"],
+                }
+            )
+
+        return normalized
+
+    def analyze(self, code: str, file_name: Optional[str] = None) -> List[Dict[str, Any]]:
+        prompt = self.build_prompt(code, file_name)
+        raw = self.send_prompt(prompt)
+        parsed = self.safe_json_loads(raw)
+        findings = self._normalize(parsed, file_name) if parsed is not None else []
+        if not findings and raw and parsed is None:
+            logger.warning("Secrets Agent received non-JSON response; returning empty findings.")
+        return findings
+
+
+def run_secrets_agent(code: str, file_name: Optional[str] = None) -> List[Dict[str, Any]]:
+    """
+    Convenience function that runs the secrets agent and returns normalized findings.
+    """
+    agent = SecretsAgent()
+    return agent.analyze(code=code, file_name=file_name)
