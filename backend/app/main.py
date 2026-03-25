@@ -6,7 +6,7 @@ from starlette.responses import JSONResponse
 from .config import get_settings
 from .database import Base, engine
 from .models import user_model, scan_model, vulnerability_model  # ensure models are registered
-from .routes import auth_routes, scan_routes, report_routes
+from .routes import auth_routes, scan_routes, report_routes, rag_routes
 from .utils.rate_limiter import rate_limiter
 
 
@@ -53,6 +53,7 @@ app.include_router(auth_routes.router, dependencies=[Depends(rate_limiter)])
 app.include_router(scan_routes.router, dependencies=[Depends(rate_limiter)])
 app.include_router(report_routes.router, dependencies=[Depends(rate_limiter)])
 app.include_router(report_routes.router, prefix="/api", dependencies=[Depends(rate_limiter)])
+app.include_router(rag_routes.router, dependencies=[Depends(rate_limiter)])
 
 
 @app.get("/health", tags=["meta"])

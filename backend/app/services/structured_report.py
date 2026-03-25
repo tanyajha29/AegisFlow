@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-import json
 import logging
 from typing import Iterable, List
 
-import httpx
 from pydantic import ValidationError
+
+from app.agents.report_agent import run_report_agent
 
 from ..config import get_settings
 from ..models.scan_model import Scan
@@ -20,53 +20,6 @@ from ..services.risk_engine import calculate_risk_score, risk_level
 
 logger = logging.getLogger("dristi-scan")
 settings = get_settings()
-
-REQUIRED_JSON_FORMAT = """{
-  "summary": {
-    "total": 0,
-    "critical": 0,
-    "high": 0,
-    "medium": 0,
-    "low": 0,
-    "overall_risk": "Low"
-  },
-  "findings": [
-    {
-      "type": "",
-      "severity": "",
-      "line": 0,
-      "code": "",
-      "description": "",
-      "impact": "",
-      "attack_example": "",
-      "recommendation": "",
-      "fix_code": ""
-    }
-  ],
-  "risk_score": {
-    "score": 0,
-    "reason": ""
-  },
-  "ai_insights": {
-    "summary": "",
-    "most_critical_issue": "",
-    "fix_priority": ""
-  },
-  "secure_version": ""
-}"""
-
-STRUCTURED_PROMPT = """Code:
-{code}
-
-Instructions:
-Analyze the code for security vulnerabilities and return ONLY valid JSON in the exact schema provided.
-Do not return markdown.
-Do not return explanation outside JSON.
-If there are no vulnerabilities, still return the full JSON structure with empty findings and appropriate summary values.
-
-Required JSON format:
-{json_format}
-"""
 
 
 def _severity_counts(vulnerabilities: Iterable) -> dict[str, int]:
@@ -163,47 +116,6 @@ def _build_fallback_report(scan: Scan) -> FullStructuredReportSchema:
     )
 
 
-def _safe_json_parse(text: str) -> dict:
-    candidates: List[str] = [text]
-    if "```" in text:
-        for part in text.split("```"):
-            part = part.strip()
-            if not part:
-                continue
-            if part.lower().startswith("json"):
-                part = part[4:].strip()
-            candidates.append(part)
-    if "{" in text and "}" in text:
-        start = text.find("{")
-        end = text.rfind("}") + 1
-        candidates.append(text[start:end])
-
-    for candidate in candidates:
-        try:
-            return json.loads(candidate)
-        except json.JSONDecodeError:
-            try:
-                repaired = candidate.replace("'", '"')
-                return json.loads(repaired)
-            except Exception:
-                continue
-    raise ValueError("Unable to parse AI JSON output")
-
-
-def _call_ai(code_context: str) -> str:
-    ollama_url = str(settings.ollama_url).rstrip("/")
-    payload = {
-        "model": settings.ollama_model,
-        "prompt": STRUCTURED_PROMPT.format(code=code_context, json_format=REQUIRED_JSON_FORMAT),
-        "stream": False,
-    }
-    with httpx.Client(timeout=settings.ollama_timeout_seconds or 25) as client:
-        response = client.post(f"{ollama_url}/api/generate", json=payload)
-        response.raise_for_status()
-        data = response.json()
-        return (data.get("response") or data.get("output") or response.text).strip()
-
-
 def _build_code_context(scan: Scan) -> str:
     parts = [
         f"File/Target: {getattr(scan, 'file_name', 'unknown')}",
@@ -254,15 +166,37 @@ def _normalize_ai_report(
 
 def build_structured_report(scan: Scan) -> FullStructuredReportSchema:
     fallback = _build_fallback_report(scan)
-    counts = _severity_counts(scan.vulnerabilities or [])
+    vulnerabilities = list(scan.vulnerabilities or [])
+    counts = _severity_counts(vulnerabilities)
     score_0_100 = float(getattr(scan, "risk_score", 0.0) or 0.0)
+    if counts["total"] > 0 and score_0_100 == 0.0:
+        severities = [getattr(v, "severity", None) or v.get("severity") for v in vulnerabilities]
+        score_0_100 = float(calculate_risk_score(severities))
+
+    risk_score_10 = round(min(10.0, max(0.0, score_0_100 / 10.0)), 2)
+    summary_payload = {
+        "total": counts["total"],
+        "critical": counts["Critical"],
+        "high": counts["High"],
+        "medium": counts["Medium"],
+        "low": counts["Low"],
+        "overall_risk": _overall_risk_label(score_0_100, counts),
+    }
+    findings_payload = [_vulnerability_to_finding(v).model_dump() for v in vulnerabilities]
     if not getattr(settings, "ai_report_enabled", False):
         return fallback
 
     try:
-        raw = _call_ai(_build_code_context(scan))
-        parsed = _safe_json_parse(raw)
-        ai_report = FullStructuredReportSchema.model_validate(parsed)
+        ai_data = run_report_agent(
+            findings=findings_payload,
+            summary=summary_payload,
+            risk_score_10=risk_score_10,
+            code=_build_code_context(scan),
+            file_name=getattr(scan, "file_name", None),
+        )
+        if not ai_data:
+            raise ValueError("Report Agent returned empty or invalid payload.")
+        ai_report = FullStructuredReportSchema.model_validate(ai_data)
         return _normalize_ai_report(ai_report, fallback, counts, score_0_100)
     except (ValidationError, Exception) as exc:
         logger.warning("Structured AI report failed or invalid. Falling back to deterministic version: %s", exc)

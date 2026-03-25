@@ -1,0 +1,14 @@
+{
+  "id": "kb_sql_owasp",
+  "title": "OWASP A03:2021 Injection",
+  "source": "OWASP",
+  "vulnerability_type": "SQL Injection",
+  "language": "python",
+  "framework": "flask",
+  "tags": ["sql", "database", "parameterized", "prepared", "injection"],
+  "content": "SQL injection occurs when untrusted input is concatenated into SQL statements. Use parameterized queries or prepared statements instead of string formatting. In Python (Flask/psycopg2) use cursor.execute('SELECT * FROM users WHERE id=%s', (user_id,)). Validate and type-check inputs and restrict database permissions.",
+  "references": [
+    {"label": "OWASP A03:2021 Injection", "source": "OWASP"},
+    {"label": "CWE-89", "source": "CWE"}
+  ]
+}

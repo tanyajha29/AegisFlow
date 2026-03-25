@@ -1,0 +1,14 @@
+{
+  "id": "kb_xss_owasp",
+  "title": "Cross-Site Scripting Basics",
+  "source": "OWASP",
+  "vulnerability_type": "XSS",
+  "language": "javascript",
+  "framework": null,
+  "tags": ["xss", "encoding", "sanitize", "csp"],
+  "content": "XSS arises when untrusted input is reflected or stored and rendered without proper encoding. Use framework auto-escaping, context-aware output encoding, and strong Content Security Policy. Validate and sanitize HTML inputs and avoid using innerHTML with user data.",
+  "references": [
+    {"label": "OWASP A03:2021 Injection", "source": "OWASP"},
+    {"label": "CWE-79", "source": "CWE"}
+  ]
+}

@@ -17,8 +17,9 @@ from .risk_engine import risk_level
 from .structured_report import build_structured_report
 
 
-THEME_BG = colors.HexColor("#0d1117")
-TEXT = colors.HexColor("#e6edf3")
+THEME_BG = colors.white
+TEXT = colors.HexColor("#0f172a")
+BADGE_TEXT = colors.white
 SEVERITY_COLORS = {
     "Critical": colors.HexColor("#ff4444"),
     "High": colors.HexColor("#ff8800"),
@@ -83,7 +84,7 @@ def _severity_badge(text: str):
         style=TableStyle(
             [
                 ("BACKGROUND", (0, 0), (-1, -1), SEVERITY_COLORS.get(text.split()[0], TEXT)),
-                ("TEXTCOLOR", (0, 0), (-1, -1), TEXT),
+                ("TEXTCOLOR", (0, 0), (-1, -1), BADGE_TEXT),
                 ("LEFTPADDING", (0, 0), (-1, -1), 6),
                 ("RIGHTPADDING", (0, 0), (-1, -1), 6),
                 ("TOPPADDING", (0, 0), (-1, -1), 2),

@@ -1,0 +1,14 @@
+{
+  "id": "kb_path_cwe22",
+  "title": "Path Traversal Defense",
+  "source": "CWE-22",
+  "vulnerability_type": "Path Traversal",
+  "language": "python",
+  "framework": null,
+  "tags": ["path traversal", "file access", "normalize", "allowlist"],
+  "content": "Path traversal uses ../ sequences to access unintended files. Normalize and resolve paths before use, enforce allowlists of permitted directories, and avoid directly concatenating user input into file paths. Set restrictive filesystem permissions.",
+  "references": [
+    {"label": "CWE-22", "source": "CWE"},
+    {"label": "OWASP Path Traversal", "source": "OWASP"}
+  ]
+}

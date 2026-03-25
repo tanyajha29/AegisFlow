@@ -42,7 +42,9 @@ class Settings(BaseSettings):
     ai_auth_enabled: bool = Field(default=False, description="Enable Auth Agent (Phase 4)")
     ai_dependency_enabled: bool = Field(default=False, description="Enable Dependency Agent (Phase 5)")
     ai_planner_enabled: bool = Field(default=False, description="Enable Planner Agent (Phase 6)")
-    ai_report_enabled: bool = Field(default=False, description="Enable Report Agent (Phase 9)")
+    ai_report_enabled: bool = Field(default=True, description="Enable Report Agent (Phase 9)")
+    rag_kb_path: str = Field(default=os.path.join(os.getcwd(), "backend", "app", "rag", "kb"))
+    rag_top_k: int = Field(default=5, description="Top-k KB chunks to retrieve for RAG explanations")
 
     class Config:
         env_file = ".env"

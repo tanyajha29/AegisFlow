@@ -36,7 +36,7 @@ DristiScan is a full-stack cybersecurity SaaS platform that analyzes codebases f
 - GitHub repository scanning  
 - Dependency vulnerability detection  
 - Secret key and credential detection  
-- AI-powered vulnerability explanations (Ollama)  
+- AI-powered vulnerability explanations & fix suggestions (Ollama RAG)  
 - Risk scoring with severity classification  
 - Professional PDF and JSON reports  
 - Interactive dashboard with analytics and history  
@@ -209,6 +209,11 @@ VITE_API_BASE_URL=http://localhost:8000 npm run dev
 * `GET /reports/{scan_id}`
 * `GET /reports/{scan_id}/pdf`
 
+### RAG / AI Insights
+
+* `POST /rag/explain` — grounded explanation for an existing finding
+* `POST /rag/fix` — grounded fix suggestion for an existing finding
+
 ### Health
 
 * `GET /health`
@@ -252,8 +257,9 @@ Remediation: Use parameterized queries with placeholders.
 
 ## 🤖 AI Security Analysis
 
-_(Temporarily disabled)_  
-The current build runs rule-based scanners only. AI agents and Ollama integration are turned off and will be reintroduced later.
+- Local Ollama integration for Explain and Suggest Fix
+- RAG-backed knowledge base (SQL Injection, XSS, Command Injection, Secrets, Path Traversal)
+- Frontend AI Insights Drawer with tabs (Explain / Suggest Fix), code preview, and grounded references
 
 ---
 

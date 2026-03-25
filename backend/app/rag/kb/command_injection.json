@@ -1,0 +1,14 @@
+{
+  "id": "kb_cmdinj_cwe78",
+  "title": "Command Injection Mitigation",
+  "source": "CWE-78",
+  "vulnerability_type": "Command Injection",
+  "language": "python",
+  "framework": null,
+  "tags": ["os.system", "subprocess", "shell", "command", "injection"],
+  "content": "Command injection happens when user-controlled data is passed to the shell. Avoid shell=True and string concatenation. Prefer subprocess.run with argument lists and allowlists of permitted commands. Sanitize or reject untrusted input that reaches command execution APIs.",
+  "references": [
+    {"label": "CWE-78", "source": "CWE"},
+    {"label": "OWASP Command Injection Cheat Sheet", "source": "OWASP"}
+  ]
+}

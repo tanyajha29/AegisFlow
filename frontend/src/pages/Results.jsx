@@ -6,6 +6,7 @@ import { useScan } from '../context/ScanContext.jsx';
 import ResultsFilter from '../components/ResultsFilter.jsx';
 import VulnerabilityList from '../components/VulnerabilityList.jsx';
 import AgentPanel from '../components/AgentPanel.jsx';
+import AIInsightsDrawer from '../components/ai/AIInsightsDrawer.jsx';
 
 const Results = () => {
   const { lastResult } = useScan();
@@ -13,6 +14,9 @@ const Results = () => {
   const [toast, setToast] = useState(null);
   const [selectedSeverity, setSelectedSeverity] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [insightsOpen, setInsightsOpen] = useState(false);
+  const [insightsTab, setInsightsTab] = useState('explain');
+  const [selectedFinding, setSelectedFinding] = useState(null);
 
   useEffect(() => {
     if (!toast) return;
@@ -65,6 +69,12 @@ const Results = () => {
     } finally {
       setDownloading(false);
     }
+  };
+
+  const openInsights = (finding, tab) => {
+    setSelectedFinding(finding);
+    setInsightsTab(tab);
+    setInsightsOpen(true);
   };
 
   return (
@@ -160,6 +170,15 @@ const Results = () => {
         vulnerabilities={severities}
         severity={selectedSeverity}
         search={searchTerm}
+        onExplain={(v) => openInsights(v, 'explain')}
+        onFix={(v) => openInsights(v, 'fix')}
+      />
+
+      <AIInsightsDrawer
+        isOpen={insightsOpen}
+        onClose={() => setInsightsOpen(false)}
+        finding={selectedFinding}
+        initialTab={insightsTab}
       />
     </div>
   );
