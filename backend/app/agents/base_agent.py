@@ -63,7 +63,7 @@ class BaseAgent:
 
     # ---- HTTP helpers -------------------------------------------------
     def _post(self, prompt: str) -> Response:
-        payload = {"model": self.model, "prompt": prompt, "stream": False}
+        payload = {"model": self.model, "prompt": prompt, "stream": False, "format": "json"}
         return requests.post(self.url, json=payload, timeout=self.timeout)
 
     def send_prompt(self, prompt: str) -> str:

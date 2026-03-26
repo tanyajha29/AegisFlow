@@ -7,6 +7,7 @@ import Dashboard from './pages/Dashboard.jsx';
 import Scan from './pages/Scan.jsx';
 import Results from './pages/Results.jsx';
 import Reports from './pages/Reports.jsx';
+import ReportDetails from './pages/ReportDetails.jsx';
 import History from './pages/History.jsx';
 import Settings from './pages/Settings.jsx';
 import Layout from './components/Layout.jsx';
@@ -35,6 +36,7 @@ const App = () => {
                   <Route path="scan" element={<Scan />} />
                   <Route path="results" element={<Results />} />
                   <Route path="reports" element={<Reports />} />
+                  <Route path="reports/:scanId" element={<ReportDetails />} />
                   <Route path="history" element={<History />} />
                   <Route path="settings" element={<Settings />} />
                   <Route path="*" element={<Navigate to="/app" replace />} />
