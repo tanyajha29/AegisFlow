@@ -26,10 +26,15 @@ services:
       - ACCESS_TOKEN_EXPIRE_MINUTES=30
       - GITHUB_TOKEN=${GITHUB_TOKEN:-}
       - OLLAMA_URL=${OLLAMA_URL:-http://host.docker.internal:11434}
+      - OLLAMA_MODEL=${OLLAMA_MODEL:-deepseek-coder}
+      - OLLAMA_TIMEOUT_SECONDS=${OLLAMA_TIMEOUT_SECONDS:-120}
+      - RAG_DEBUG=${RAG_DEBUG:-false}
+      - RAG_TOP_K=${RAG_TOP_K:-5}
     depends_on:
       - db
     volumes:
       - ./backend:/app
+      - huggingface_cache:/root/.cache/huggingface
     extra_hosts:
       - "host.docker.internal:host-gateway"
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000
@@ -46,3 +51,4 @@ services:
 
 volumes:
   postgres_data:
+  huggingface_cache:

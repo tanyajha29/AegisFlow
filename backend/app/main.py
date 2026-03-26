@@ -33,6 +33,14 @@ app.add_middleware(
 def on_startup():
     Base.metadata.create_all(bind=engine)
     logger.info("Database tables ensured")
+    # Pre-warm the sentence transformer so the first RAG request isn't blocked
+    # by a model download. This runs once at startup inside the container.
+    try:
+        from .rag.retriever_service import _get_model
+        _get_model()
+        logger.info("SentenceTransformer pre-warmed successfully")
+    except Exception as exc:
+        logger.warning("SentenceTransformer pre-warm failed (non-fatal): %s", exc)
 
 
 @app.middleware("http")

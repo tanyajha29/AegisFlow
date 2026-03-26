@@ -33,6 +33,7 @@ class ExplainResponse(BaseModel):
     secure_example: str
     references: List[Reference] = Field(default_factory=list)
     retrieved_context_count: int = 0
+    source_mode: str = "rag"  # "rag" | "fallback"
 
 
 class KBEntry(BaseModel):
@@ -56,6 +57,7 @@ class FixResponse(BaseModel):
     notes: List[str] = Field(default_factory=list)
     references: List[Reference] = Field(default_factory=list)
     retrieved_context_count: int = 0
+    source_mode: str = "rag"  # "rag" | "fallback"
 
 
 class SearchRequest(BaseModel):
