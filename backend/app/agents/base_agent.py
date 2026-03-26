@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 
 DEFAULT_OLLAMA_URL = "http://localhost:11434/api/generate"
-DEFAULT_OLLAMA_MODEL = "deepseek-coder"
+DEFAULT_OLLAMA_MODEL = "qwen2.5-coder"
 DEFAULT_TIMEOUT_SECONDS = 120
 
 
@@ -74,8 +74,10 @@ class BaseAgent:
         if self._debug:
             logger.debug(
                 "[%s] Sending prompt to %s (model=%s, timeout=%ss):\n%s",
-                self.name, self.url, self.model, self.timeout, prompt[:600],
+                self.name, self.url, self.model, self.timeout, prompt[:800],
             )
+        else:
+            logger.info("[%s] Calling Ollama model=%s timeout=%ss", self.name, self.model, self.timeout)
         try:
             response = self._post(prompt)
             response.raise_for_status()
@@ -91,15 +93,17 @@ class BaseAgent:
                 if self._debug:
                     logger.debug(
                         "[%s] Raw Ollama response (%d chars):\n%s",
-                        self.name, len(result), result[:800],
+                        self.name, len(result), result[:1000],
                     )
+                else:
+                    logger.info("[%s] Ollama responded (%d chars)", self.name, len(result))
                 return result
             logger.warning("[%s] Unexpected Ollama payload shape; expected 'response' text.", self.name)
             return ""
         except requests.Timeout:
             logger.error(
-                "[%s] Ollama request timed out after %ss (url=%s). "
-                "Increase OLLAMA_TIMEOUT_SECONDS if the model is slow.",
+                "[%s] Ollama timed out after %ss (url=%s). "
+                "Increase OLLAMA_TIMEOUT_SECONDS or use a faster model.",
                 self.name, self.timeout, self.url,
             )
             return ""
@@ -120,41 +124,76 @@ class BaseAgent:
     @staticmethod
     def safe_json_loads(text: str) -> Any:
         """
-        Attempt to parse JSON while tolerating:
-        - markdown code fences (```json ... ``` or ``` ... ```)
-        - leading/trailing prose around a JSON object or array
-        Returns None on failure and logs the reason.
+        Multi-stage JSON recovery that handles:
+        1. Clean JSON (fastest path)
+        2. Markdown code fences: ```json ... ``` or ``` ... ```
+        3. Inline code fences: `{...}`
+        4. JSON object/array embedded in prose
+        5. Truncated JSON repair (trailing comma, missing closing brace)
+        Returns None only after all recovery attempts fail.
         """
         if not text:
+            logger.debug("safe_json_loads: empty input")
             return None
 
-        # 1. Direct parse — fastest path
+        # Stage 1 — direct parse
         try:
             return json.loads(text)
         except json.JSONDecodeError:
             pass
 
-        # 2. Strip markdown code fences
-        fence_match = re.search(r"```(?:json)?\s*([\s\S]*?)```", text, re.IGNORECASE)
-        if fence_match:
-            candidate = fence_match.group(1).strip()
+        # Stage 2 — strip markdown triple-fence ```json ... ``` or ``` ... ```
+        fence = re.search(r"```(?:json)?\s*\n?([\s\S]*?)```", text, re.IGNORECASE)
+        if fence:
+            candidate = fence.group(1).strip()
             try:
                 return json.loads(candidate)
             except json.JSONDecodeError:
                 pass
+            # still try to extract object/array from inside the fence
+            text = candidate  # narrow search scope for stages below
 
-        # 3. Extract first JSON object or array from surrounding prose
-        for pattern in (r"\{[\s\S]*\}", r"\[[\s\S]*\]"):
-            match = re.search(pattern, text)
-            if match:
+        # Stage 3 — inline single backtick fence `{...}`
+        inline = re.search(r"`(\{[\s\S]*?\})`", text)
+        if inline:
+            try:
+                return json.loads(inline.group(1))
+            except json.JSONDecodeError:
+                pass
+
+        # Stage 4 — extract first complete JSON object {...}
+        # Use a greedy search from first { to last } to handle nested objects
+        obj_start = text.find("{")
+        obj_end = text.rfind("}")
+        if obj_start != -1 and obj_end != -1 and obj_end > obj_start:
+            candidate = text[obj_start : obj_end + 1]
+            try:
+                return json.loads(candidate)
+            except json.JSONDecodeError:
+                # Stage 5 — attempt light repair: remove trailing commas before } or ]
+                repaired = re.sub(r",\s*([}\]])", r"\1", candidate)
                 try:
-                    return json.loads(match.group(0))
+                    return json.loads(repaired)
                 except json.JSONDecodeError:
-                    continue
+                    pass
+
+        # Stage 6 — extract first JSON array [...]
+        arr_start = text.find("[")
+        arr_end = text.rfind("]")
+        if arr_start != -1 and arr_end != -1 and arr_end > arr_start:
+            candidate = text[arr_start : arr_end + 1]
+            try:
+                return json.loads(candidate)
+            except json.JSONDecodeError:
+                repaired = re.sub(r",\s*([}\]])", r"\1", candidate)
+                try:
+                    return json.loads(repaired)
+                except json.JSONDecodeError:
+                    pass
 
         logger.warning(
-            "safe_json_loads: could not extract valid JSON from response (len=%d, preview=%r)",
-            len(text), text[:120],
+            "safe_json_loads: all recovery stages failed (input len=%d, preview=%r)",
+            len(text), text[:150],
         )
         return None
 

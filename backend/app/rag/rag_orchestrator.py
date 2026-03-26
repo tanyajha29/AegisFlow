@@ -302,8 +302,7 @@ def run_explain(db: Session, req: ExplainRequest) -> ExplainResponse:
     )
     logger.info("[RAG explain] Retrieved %d chunks for finding_id=%s type=%r", len(chunks), req.finding_id, req.type)
 
-    # 2. Build prompt using KB chunks converted to KBEntry-like dicts
-    from .schemas import KBEntry, Reference as Ref  # local import to avoid circular
+    # 2. Build prompt
     kb_contexts = _chunks_to_kb_entries(chunks)
     prompt = build_explain_prompt(req, kb_contexts)
 
@@ -312,16 +311,20 @@ def run_explain(db: Session, req: ExplainRequest) -> ExplainResponse:
     if not raw:
         return _fallback_explain(req, chunks, "Ollama returned empty response (timeout or connection error)")
 
-    # 4. Parse JSON
+    # 4. Log raw output always so failures are visible in logs
+    logger.info("[RAG explain] Raw model output (%d chars): %r", len(raw), raw[:300])
+
+    # 5. Parse JSON — safe_json_loads tries 6 recovery stages before giving up
     parsed = _agent.safe_json_loads(raw)
     if not isinstance(parsed, dict):
         logger.warning(
-            "[RAG explain] JSON parse failed for finding_id=%s. Raw preview: %r",
-            req.finding_id, raw[:200],
+            "[RAG explain] JSON parse failed after all recovery stages. "
+            "finding_id=%s raw_preview=%r",
+            req.finding_id, raw[:300],
         )
-        return _fallback_explain(req, chunks, f"JSON parse failed (raw len={len(raw)})")
+        return _fallback_explain(req, chunks, f"JSON unrecoverable after 6 parse stages (raw len={len(raw)})")
 
-    # 5. Normalize and return
+    # 6. Normalize and return
     try:
         return _normalize_explain(parsed, req, chunks, fallback)
     except Exception as exc:
@@ -350,16 +353,20 @@ def run_fix(db: Session, req: ExplainRequest) -> FixResponse:
     if not raw:
         return _fallback_fix(req, chunks, "Ollama returned empty response (timeout or connection error)")
 
-    # 4. Parse JSON
+    # 4. Log raw output
+    logger.info("[RAG fix] Raw model output (%d chars): %r", len(raw), raw[:300])
+
+    # 5. Parse JSON
     parsed = _agent.safe_json_loads(raw)
     if not isinstance(parsed, dict):
         logger.warning(
-            "[RAG fix] JSON parse failed for finding_id=%s. Raw preview: %r",
-            req.finding_id, raw[:200],
+            "[RAG fix] JSON parse failed after all recovery stages. "
+            "finding_id=%s raw_preview=%r",
+            req.finding_id, raw[:300],
         )
-        return _fallback_fix(req, chunks, f"JSON parse failed (raw len={len(raw)})")
+        return _fallback_fix(req, chunks, f"JSON unrecoverable after 6 parse stages (raw len={len(raw)})")
 
-    # 5. Normalize and return
+    # 6. Normalize and return
     try:
         return _normalize_fix(parsed, req, chunks)
     except Exception as exc:

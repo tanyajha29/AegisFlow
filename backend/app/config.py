@@ -35,7 +35,7 @@ class Settings(BaseSettings):
     log_level: str = Field(default="INFO")
     github_token: str | None = Field(default=None, description="GitHub token for repository scanning")
     ollama_url: AnyHttpUrl | str = Field(default="http://localhost:11434", description="Ollama base URL")
-    ollama_model: str = Field(default="deepseek-coder", description="Default Ollama model for AI agents")
+    ollama_model: str = Field(default="qwen2.5-coder", description="Default Ollama model for AI agents")
     ollama_timeout_seconds: float = Field(default=120.0, description="HTTP timeout for Ollama calls")
     rag_debug: bool = Field(default=False, description="Enable verbose RAG debug logging")
     ai_injection_enabled: bool = Field(default=False, description="Enable Injection Agent (Phase 2)")
