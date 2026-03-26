@@ -78,17 +78,17 @@ It provides a clean and interactive interface for:
 ## 🏗️ Frontend Architecture
 
 ```plaintext id="1u2y1y"
-User Interaction
-      ↓
-React Components (Pages + Cards)
-      ↓
-API Layer (Axios / Fetch)
-      ↓
-FastAPI Backend
-      ↓
-Scanner + RAG Engine
-      ↓
-Response → UI Rendering
+             User Interaction
+                   ↓
+        React Components (Pages + Cards)
+                    ↓
+           API Layer (Axios / Fetch)
+                    ↓
+               FastAPI Backend
+                    ↓
+             Scanner + RAG Engine
+                     ↓
+            Response → UI Rendering
 ```
 
 ---
@@ -149,15 +149,15 @@ Frontend connects to backend APIs:
 ## 🧠 AI Interaction Flow
 
 ```plaintext id="u5s7w3"
-User clicks "Explain"
-        ↓
-Frontend calls /rag/explain
-        ↓
-Backend RAG retrieves knowledge
-        ↓
-LLM generates explanation
-        ↓
-UI displays explanation + fix + references
+            User clicks "Explain"
+                    ↓
+         Frontend calls /rag/explain
+                    ↓
+        Backend RAG retrieves knowledge
+                    ↓
+          LLM generates explanation
+                   ↓
+         UI displays explanation + fix + references
 ```
 
 ---
