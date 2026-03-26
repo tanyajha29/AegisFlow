@@ -45,3 +45,35 @@ class KBEntry(BaseModel):
     tags: List[str] = Field(default_factory=list)
     content: str
     references: List[Reference] = Field(default_factory=list)
+
+
+class FixResponse(BaseModel):
+    finding_id: str
+    title: str
+    fix_summary: str
+    why_this_fix_is_safer: str
+    fixed_code: str
+    notes: List[str] = Field(default_factory=list)
+    references: List[Reference] = Field(default_factory=list)
+    retrieved_context_count: int = 0
+
+
+class SearchRequest(BaseModel):
+    query: str
+    vulnerability_type: Optional[str] = None
+    language: Optional[str] = None
+    framework: Optional[str] = None
+    top_k: int = 5
+
+
+class SearchChunk(BaseModel):
+    chunk_id: str
+    source: str
+    title: str
+    content: str
+    metadata: dict = Field(default_factory=dict)
+    similarity: float
+
+
+class SearchResponse(BaseModel):
+    results: List[SearchChunk]

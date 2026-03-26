@@ -26,6 +26,26 @@ It provides a clean and interactive interface for:
 
 ---
 
+## 🖼️ Landing Screens
+
+<p align="center">
+  <img src="../docs/Landing_screen/lanidng01.png" alt="Landing screen hero" width="900" />
+</p>
+
+<p align="center">
+  <img src="../docs/Landing_screen/landing02.png" alt="Dashboard spotlight" width="900" />
+</p>
+
+<p align="center">
+  <img src="../docs/Landing_screen/landing03.png" alt="AI insights section" width="900" />
+</p>
+
+<p align="center">
+  <img src="../docs/Landing_screen/lanidng04.png" alt="Security reports" width="900" />
+</p>
+
+---
+
 ## 🧠 Key Features
 
 ### 🔍 Security Dashboard

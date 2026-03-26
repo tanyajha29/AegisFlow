@@ -43,6 +43,18 @@ Unlike traditional tools that only detect issues, DristiScan:
 
 ---
 
+## 🖼️ Product Screens
+
+| Dashboard | Launch a Scan |
+| --- | --- |
+| <img src="docs/screens/dashboard.png" alt="DristiScan dashboard overview" width="100%" style="border:1px solid #0f172a; border-radius:12px;"> | <img src="docs/screens/scan.png" alt="Upload / repository scan entry" width="100%" style="border:1px solid #0f172a; border-radius:12px;"> |
+
+| Findings & Filters | Report Exports |
+| --- | --- |
+| <img src="docs/screens/results.png" alt="Findings list with filters and severity badges" width="100%" style="border:1px solid #0f172a; border-radius:12px;"> | <img src="docs/screens/reports.png" alt="PDF/JSON report download view" width="100%" style="border:1px solid #0f172a; border-radius:12px;"> |
+
+---
+
 ## 🧠 What Makes DristiScan Different
 
 > Traditional scanners → detect
@@ -105,7 +117,7 @@ Unlike traditional tools that only detect issues, DristiScan:
         ▼                        ▼                        ▼
 
 ┌──────────────────┐   ┌──────────────────┐   ┌────────────────────────┐
-│  Scanner Engine   │   │   RAG Engine      │   │    Report Engine        │
+│  Scanner Engine  │   │   RAG Engine     │   │    Report Engine       │
 │                  │   │                  │   │                        │
 │ - SAST Rules     │   │ - Query Builder  │   │ - PDF Generator        │
 │ - Secrets Scan   │   │ - Retriever      │   │ - JSON Reports         │
@@ -115,20 +127,20 @@ Unlike traditional tools that only detect issues, DristiScan:
           ▼                      ▼                      ▼
 
 ┌──────────────────┐   ┌──────────────────────────────┐
-│  PostgreSQL DB    │   │   Vector DB (pgvector)       │
+│  PostgreSQL DB   │   │   Vector DB (pgvector)       │
 │                  │   │                              │
-│ - Users           │   │ - OWASP chunks               │
-│ - Findings        │   │ - CWE entries                │
-│ - Reports         │   │ - CVE records                │
+│ - Users          │   │ - OWASP chunks               │
+│ - Findings       │   │ - CWE entries                │
+│ - Reports        │   │ - CVE records                │
 └──────────────────┘   │ - Embeddings (384-dim)       │
                        └────────────┬─────────────────┘
                                     │
                                     ▼
                        ┌──────────────────────────┐
-                       │     AI Engine (LLM)       │
-                       │     Ollama (Local LLM)    │
-                       │  - Explain                │
-                       │  - Fix Suggestions        │
+                       │     AI Engine (LLM)      │
+                       │     Ollama (Local LLM)   │
+                       │  - Explain               │
+                       │  - Fix Suggestions       │
                        └──────────────────────────┘
 ```
 
@@ -137,13 +149,13 @@ Unlike traditional tools that only detect issues, DristiScan:
 ## 🧠 RAG Pipeline
 
 ```plaintext
-Knowledge Base → Clean → Chunk → Embed → Store (pgvector)
+               Knowledge Base → Clean → Chunk → Embed → Store (pgvector)
                                       ↓
-User Query / Finding → Embed → Similarity Search
+                  User Query / Finding → Embed → Similarity Search
                                       ↓
-Top-K Relevant Chunks
+                           Top-K Relevant Chunks
                                       ↓
-LLM → Grounded Explanation + Fix
+                         LLM → Grounded Explanation + Fix
 ```
 
 ---
