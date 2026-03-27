@@ -30,6 +30,13 @@ services:
       - OLLAMA_TIMEOUT_SECONDS=${OLLAMA_TIMEOUT_SECONDS:-120}
       - RAG_DEBUG=${RAG_DEBUG:-false}
       - RAG_TOP_K=${RAG_TOP_K:-5}
+      - LLM_PROVIDER=${LLM_PROVIDER:-openrouter}
+      - LLM_MODEL=${LLM_MODEL:-openrouter/auto}
+      - LLM_TIMEOUT_SECONDS=${LLM_TIMEOUT_SECONDS:-120}
+      - LLM_TEMPERATURE=${LLM_TEMPERATURE:-0}
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
+      - OPENROUTER_SITE_URL=${OPENROUTER_SITE_URL:-http://localhost:5173}
+      - OPENROUTER_SITE_NAME=${OPENROUTER_SITE_NAME:-DristiScan}
     depends_on:
       - db
     volumes:
