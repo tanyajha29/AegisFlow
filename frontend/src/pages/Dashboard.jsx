@@ -6,11 +6,30 @@ import {
   ExclamationTriangleIcon,
 } from '@heroicons/react/24/outline';
 import { Line, Pie, Bar } from 'react-chartjs-2';
-import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, ArcElement, BarElement, Tooltip, Legend } from 'chart.js';
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  ArcElement,
+  BarElement,
+  Tooltip,
+  Legend,
+} from 'chart.js';
 import StatCard from '../components/StatCard.jsx';
 import ChartCard from '../components/ChartCard.jsx';
 
-ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, ArcElement, BarElement, Tooltip, Legend);
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  ArcElement,
+  BarElement,
+  Tooltip,
+  Legend
+);
 
 const Dashboard = () => {
   const [history, setHistory] = useState([]);
@@ -20,7 +39,10 @@ const Dashboard = () => {
     if (typeof report?.security_score === 'number') return report.security_score;
     if (typeof report?.risk_score === 'number') return Math.max(0, 100 - report.risk_score);
     const sevWeights = { Critical: 25, High: 15, Medium: 8, Low: 2 };
-    const risk = (report?.vulnerabilities || []).reduce((acc, v) => acc + (sevWeights[v.severity] || 0), 0);
+    const risk = (report?.vulnerabilities || []).reduce(
+      (acc, v) => acc + (sevWeights[v.severity] || 0),
+      0
+    );
     return Math.max(0, 100 - risk);
   };
 
@@ -56,7 +78,12 @@ const Dashboard = () => {
     labels: ['Critical', 'High', 'Medium', 'Low'],
     datasets: [
       {
-        data: [severityCounts.Critical, severityCounts.High, severityCounts.Medium, severityCounts.Low],
+        data: [
+          severityCounts.Critical,
+          severityCounts.High,
+          severityCounts.Medium,
+          severityCounts.Low,
+        ],
         backgroundColor: ['#EF4444', '#F97316', '#EAB308', '#22C55E'],
         borderWidth: 0,
       },
@@ -71,54 +98,102 @@ const Dashboard = () => {
         label: 'Security Score',
         data: recent.map((r) => computeScore(r)),
         borderColor: '#22D3EE',
-        backgroundColor: 'rgba(34,211,238,0.15)',
+        backgroundColor: 'rgba(34,211,238,0.12)',
         tension: 0.35,
         fill: true,
+        pointBackgroundColor: '#22D3EE',
+        pointRadius: 4,
       },
     ],
   };
 
-  const typeData = severityData; // placeholder since API doesn't classify types yet
+  const typeData = severityData;
+
+  const chartOptions = {
+    plugins: { legend: { display: false } },
+    scales: {
+      x: { ticks: { color: '#64748b' }, grid: { color: 'rgba(255,255,255,0.04)' } },
+      y: { ticks: { color: '#64748b' }, grid: { color: 'rgba(255,255,255,0.04)' }, suggestedMin: 0, suggestedMax: 100 },
+    },
+  };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Security Overview</p>
-          <h1 className="text-3xl font-semibold text-white">Welcome back, engineer.</h1>
-          <p className="text-slate-500 text-sm">Monitor scans, risks, and remediation velocity.</p>
+    <div className="space-y-8">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
+        <div className="space-y-1">
+          <p className="text-xs uppercase tracking-widest text-slate-500">Security Overview</p>
+          <h1 className="text-2xl font-bold text-white">Welcome back, engineer.</h1>
+          <p className="text-sm text-slate-500">Monitor scans, risks, and remediation velocity.</p>
         </div>
-        <div className="hidden md:flex items-center gap-3">
-          <button className="px-4 py-2 rounded-xl bg-white/5 border border-border text-slate-200">Create API Key</button>
-          <button className="px-4 py-2 rounded-xl bg-gradient-to-r from-cyber to-accent text-white shadow-glow">New Scan</button>
+        <div className="flex items-center gap-2">
+          <button className="px-4 py-2 rounded-xl bg-white/[0.04] border border-white/[0.08] text-slate-300 text-sm hover:bg-white/[0.08] transition">
+            Create API Key
+          </button>
+          <button className="px-4 py-2 rounded-xl bg-gradient-to-r from-cyan-400 to-blue-600 text-white text-sm font-semibold shadow-[0_0_16px_rgba(34,211,238,0.3)] hover:shadow-[0_0_24px_rgba(34,211,238,0.45)] transition">
+            New Scan
+          </button>
         </div>
       </div>
 
-      <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard title="Total Scans" value={totalScans} subtext="All time" icon={BoltIcon} color="bg-cyber/80" />
-        <StatCard title="Total Vulnerabilities" value={totalIssues} subtext="Across scans" icon={ExclamationTriangleIcon} color="bg-critical/80" />
-        <StatCard title="Average Security Score" value={avgScore} subtext="Across scans" icon={ShieldCheckIcon} color="bg-accent/70" />
-        <StatCard title="Recent Activity" value={`${Math.min(totalScans, 5)} scans`} subtext="Latest runs" icon={ChartBarSquareIcon} color="bg-white/10" />
+      {/* Stat cards */}
+      <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard
+          title="Total Scans"
+          value={loading ? '—' : totalScans}
+          subtext="All time"
+          icon={BoltIcon}
+          color="bg-cyan-500/20"
+        />
+        <StatCard
+          title="Total Vulnerabilities"
+          value={loading ? '—' : totalIssues}
+          subtext="Across all scans"
+          icon={ExclamationTriangleIcon}
+          color="bg-red-500/20"
+        />
+        <StatCard
+          title="Avg Security Score"
+          value={loading ? '—' : avgScore}
+          subtext="Out of 100"
+          icon={ShieldCheckIcon}
+          color="bg-accent/20"
+        />
+        <StatCard
+          title="Recent Activity"
+          value={loading ? '—' : `${Math.min(totalScans, 5)} scans`}
+          subtext="Latest runs"
+          icon={ChartBarSquareIcon}
+          color="bg-white/10"
+        />
       </div>
 
+      {/* Charts */}
       <div className="grid lg:grid-cols-3 gap-4">
         <ChartCard title="Severity Distribution">
-          <Pie data={severityData} options={{ plugins: { legend: { position: 'bottom', labels: { color: '#cbd5e1' } } } }} />
-        </ChartCard>
-        <ChartCard title="Security Score Trend">
-          <Line
-            data={scoreData}
+          <Pie
+            data={severityData}
             options={{
-              plugins: { legend: { display: false } },
-              scales: {
-                x: { ticks: { color: '#cbd5e1' } },
-                y: { ticks: { color: '#cbd5e1' }, suggestedMin: 0, suggestedMax: 100 },
+              plugins: {
+                legend: {
+                  position: 'bottom',
+                  labels: { color: '#94a3b8', boxWidth: 12, padding: 16 },
+                },
               },
             }}
           />
         </ChartCard>
+        <ChartCard title="Security Score Trend">
+          <Line data={scoreData} options={chartOptions} />
+        </ChartCard>
         <ChartCard title="Vulnerability Types">
-          <Bar data={typeData} options={{ plugins: { legend: { display: false } }, scales: { x: { ticks: { color: '#cbd5e1' } }, y: { ticks: { color: '#cbd5e1' } } } }} />
+          <Bar
+            data={typeData}
+            options={{
+              ...chartOptions,
+              plugins: { legend: { display: false } },
+            }}
+          />
         </ChartCard>
       </div>
     </div>

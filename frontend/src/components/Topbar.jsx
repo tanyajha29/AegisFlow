@@ -1,7 +1,8 @@
 import React, { useMemo } from 'react';
-import { BellIcon, Bars3Icon, EyeIcon } from '@heroicons/react/24/outline';
+import { BellIcon, Bars3Icon } from '@heroicons/react/24/outline';
 import { motion } from 'framer-motion';
 import { useLocation } from 'react-router-dom';
+import { ShieldCheckIcon } from '@heroicons/react/24/solid';
 
 const routeTitle = (pathname) => {
   if (pathname.startsWith('/app/scan')) return 'Scan Workspace';
@@ -18,32 +19,45 @@ const Topbar = ({ onToggleSidebar }) => {
   const title = useMemo(() => routeTitle(pathname), [pathname]);
 
   return (
-    <header className="sticky top-0 z-20">
-      <div className="max-w-7xl mx-auto flex items-center gap-3 px-6 py-4 md:px-10 glass-card bg-[rgba(15,23,42,0.85)] border border-[rgba(59,130,246,0.25)] backdrop-blur-2xl">
-        <button className="md:hidden text-slate-300" onClick={onToggleSidebar}>
-          <Bars3Icon className="h-6 w-6" />
+    <header className="sticky top-0 z-20 border-b border-white/[0.06] bg-slate-950/80 backdrop-blur-xl">
+      <div className="flex items-center gap-4 px-5 py-3 md:px-6">
+        {/* Mobile hamburger */}
+        <button
+          className="md:hidden p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/5 transition"
+          onClick={onToggleSidebar}
+        >
+          <Bars3Icon className="h-5 w-5" />
         </button>
+
+        {/* Page title */}
         <motion.div
           key={title}
-          initial={{ opacity: 0, y: 6 }}
+          initial={{ opacity: 0, y: 4 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.18 }}
-          className="flex items-center gap-2 text-slate-100"
+          transition={{ duration: 0.15 }}
+          className="flex items-center gap-2.5"
         >
-          <span className="text-sm uppercase tracking-[0.18em] text-slate-500">Page</span>
-          <span className="h-5 w-px bg-slate-700" />
-          <span className="text-lg font-semibold">{title}</span>
+          <span className="text-[11px] uppercase tracking-widest text-slate-600 hidden sm:block">Page</span>
+          <span className="hidden sm:block h-4 w-px bg-white/10" />
+          <span className="text-sm font-semibold text-slate-100">{title}</span>
         </motion.div>
+
         <div className="flex-1" />
-        <motion.button
-          whileHover={{ scale: 1.05 }}
-          className="relative h-11 w-11 rounded-xl bg-surface border border-border flex items-center justify-center"
-        >
-          <BellIcon className="h-5 w-5 text-slate-200" />
-          <span className="absolute top-1 right-1 h-2 w-2 bg-accent rounded-full animate-pulse" />
-        </motion.button>
-        <div className="h-11 w-11 rounded-xl bg-gradient-to-br from-cyber to-accent flex items-center justify-center text-white">
-          <EyeIcon className="h-6 w-6" />
+
+        {/* Right actions */}
+        <div className="flex items-center gap-2">
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            className="relative h-9 w-9 rounded-xl bg-white/[0.04] border border-white/[0.08] flex items-center justify-center text-slate-400 hover:text-white hover:border-white/20 transition"
+          >
+            <BellIcon className="h-4.5 w-4.5 h-[18px] w-[18px]" />
+            <span className="absolute top-1.5 right-1.5 h-1.5 w-1.5 bg-accent rounded-full" />
+          </motion.button>
+
+          <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-cyan-400 to-blue-600 flex items-center justify-center shadow-[0_0_12px_rgba(34,211,238,0.25)]">
+            <ShieldCheckIcon className="h-5 w-5 text-white" />
+          </div>
         </div>
       </div>
     </header>

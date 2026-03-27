@@ -5,7 +5,6 @@ import ProgressBar from '../components/ProgressBar.jsx';
 import { useScan } from '../context/ScanContext.jsx';
 import ResultsFilter from '../components/ResultsFilter.jsx';
 import VulnerabilityList from '../components/VulnerabilityList.jsx';
-import AgentPanel from '../components/AgentPanel.jsx';
 import AIInsightsDrawer from '../components/ai/AIInsightsDrawer.jsx';
 
 const Results = () => {
@@ -33,8 +32,6 @@ const Results = () => {
   }
 
   const severities = lastResult.vulnerabilities || [];
-  const agentsUsed = lastResult.ai_agents_used || [];
-  const aiLogs = lastResult.ai_logs || [];
   const displayName = lastResult.display_file_name || lastResult.original_file_name || lastResult.file_name;
   const securityScore = lastResult.security_score ?? Math.max(0, 100 - (lastResult.risk_score ?? 0));
   const band =
@@ -124,41 +121,50 @@ const Results = () => {
       </div>
 
       <div className="grid lg:grid-cols-3 gap-4">
-        <GlassCard className="p-4 space-y-3">
-          <div className="flex items-center justify-between">
-            <p className="text-sm text-slate-400">Security Score</p>
-            <p className="text-2xl font-semibold text-white">{Math.round(securityScore)}</p>
+        <GlassCard className="p-5 space-y-3">
+          <p className="text-xs uppercase tracking-widest text-slate-500">Security Score</p>
+          <div className="flex items-end gap-3">
+            <p className="text-4xl font-bold text-white">{Math.round(securityScore)}</p>
+            <p className="text-slate-500 text-sm mb-1">/ 100</p>
           </div>
           <ProgressBar value={securityScore} tone={band.tone} />
-          <p className={`text-xs ${band.text}`}>{band.label}</p>
+          <p className={`text-xs font-semibold ${band.text}`}>{band.label}</p>
         </GlassCard>
-        <GlassCard className="p-4 space-y-3">
-          <p className="text-sm text-slate-400">Severity Breakdown</p>
+        <GlassCard className="p-5 space-y-3">
+          <p className="text-xs uppercase tracking-widest text-slate-500">Severity Breakdown</p>
           <div className="grid grid-cols-2 gap-2 text-sm">
-            <div className="flex items-center justify-between bg-white/5 rounded-xl px-3 py-2">
-              <span>Critical</span><span className="text-critical font-semibold">{count('Critical')}</span>
+            <div className="flex items-center justify-between rounded-xl border border-critical/20 bg-critical/5 px-3 py-2">
+              <span className="text-slate-400 text-xs">Critical</span><span className="text-critical font-bold text-lg">{count('Critical')}</span>
             </div>
-            <div className="flex items-center justify-between bg-white/5 rounded-xl px-3 py-2">
-              <span>High</span><span className="text-high font-semibold">{count('High')}</span>
+            <div className="flex items-center justify-between rounded-xl border border-high/20 bg-high/5 px-3 py-2">
+              <span className="text-slate-400 text-xs">High</span><span className="text-high font-bold text-lg">{count('High')}</span>
             </div>
-            <div className="flex items-center justify-between bg-white/5 rounded-xl px-3 py-2">
-              <span>Medium</span><span className="text-medium font-semibold">{count('Medium')}</span>
+            <div className="flex items-center justify-between rounded-xl border border-medium/20 bg-medium/5 px-3 py-2">
+              <span className="text-slate-400 text-xs">Medium</span><span className="text-medium font-bold text-lg">{count('Medium')}</span>
             </div>
-            <div className="flex items-center justify-between bg-white/5 rounded-xl px-3 py-2">
-              <span>Low</span><span className="text-low font-semibold">{count('Low')}</span>
+            <div className="flex items-center justify-between rounded-xl border border-low/20 bg-low/5 px-3 py-2">
+              <span className="text-slate-400 text-xs">Low</span><span className="text-low font-bold text-lg">{count('Low')}</span>
             </div>
           </div>
         </GlassCard>
-        <GlassCard className="p-4 space-y-3">
-          <p className="text-sm text-slate-400">Risk Summary</p>
-          <ul className="text-sm text-slate-300 space-y-1">
-            <li>Total issues: {lastResult.total_findings ?? lastResult.total_issues}</li>
-            <li>Risk level: {lastResult.risk_level || band.label}</li>
-            <li>Scan id: {lastResult.scan_id}</li>
-          </ul>
+        <GlassCard className="p-5 space-y-3">
+          <p className="text-xs uppercase tracking-widest text-slate-500">Risk Summary</p>
+          <div className="space-y-2 text-sm">
+            <div className="flex items-center justify-between py-1 border-b border-white/5">
+              <span className="text-slate-400">Total issues</span>
+              <span className="text-white font-semibold">{lastResult.total_findings ?? lastResult.total_issues}</span>
+            </div>
+            <div className="flex items-center justify-between py-1 border-b border-white/5">
+              <span className="text-slate-400">Risk level</span>
+              <span className="text-white font-semibold">{lastResult.risk_level || band.label}</span>
+            </div>
+            <div className="flex items-center justify-between py-1">
+              <span className="text-slate-400">Scan ID</span>
+              <span className="text-slate-300 font-mono text-xs">#{lastResult.scan_id}</span>
+            </div>
+          </div>
         </GlassCard>
       </div>
-      <AgentPanel agentsUsed={agentsUsed} logs={aiLogs} />
       <ResultsFilter
         selectedSeverity={selectedSeverity}
         onSeverityChange={setSelectedSeverity}

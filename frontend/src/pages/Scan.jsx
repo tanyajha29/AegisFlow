@@ -4,7 +4,6 @@ import { useNavigate } from "react-router-dom";
 import GlassCard from "../components/GlassCard.jsx";
 import ScanTabs from "../components/ScanTabs.jsx";
 import ScanProgress from "../components/ScanProgress.jsx";
-import AgentPanel from "../components/AgentPanel.jsx";
 import { useScan } from "../context/ScanContext.jsx";
 
 const Scan = () => {
@@ -15,7 +14,7 @@ const Scan = () => {
   const [localError, setLocalError] = useState("");
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [repoUrl, setRepoUrl] = useState("");
-  const { runCodeScan, runUploadScan, runRepoScan, loading, lastResult } = useScan();
+  const { runCodeScan, runUploadScan, runRepoScan, loading } = useScan();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -25,6 +24,11 @@ const Scan = () => {
     }
     return () => clearInterval(timer);
   }, [isScanning]);
+
+  const handleCancel = () => {
+    setIsScanning(false);
+    setProgress(0);
+  };
 
   const handleStartScan = async () => {
     setLocalError("");
@@ -62,23 +66,28 @@ const Scan = () => {
 
   return (
     <motion.div className="space-y-6" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Scan Workspace</p>
-          <h1 className="text-3xl font-semibold text-white">Run a deep security scan</h1>
-          <p className="text-slate-500 text-sm">Paste code, upload a file, or scan a GitHub repo.</p>
-        </div>
+      {/* Page header */}
+      <div>
+        <p className="text-xs uppercase tracking-widest text-slate-500">Scan Workspace</p>
+        <h1 className="text-2xl font-bold text-white mt-1">Run a deep security scan</h1>
+        <p className="text-sm text-slate-500 mt-1">Paste code, upload a file, or scan a GitHub repo.</p>
       </div>
 
-      {localError && <GlassCard className="p-3 text-sm text-red-400 border-red-500/40 bg-red-500/10">{localError}</GlassCard>}
+      {localError && (
+        <GlassCard className="p-3 text-sm text-red-400 border-red-500/40 bg-red-500/10">
+          {localError}
+        </GlassCard>
+      )}
 
-      <div className="grid lg:grid-cols-3 gap-4">
-        <div className="lg:col-span-2 space-y-4">
+      <div className="grid lg:grid-cols-3 gap-5">
+        {/* Main scan input — takes 2/3 */}
+        <div className="lg:col-span-2">
           <ScanTabs
             activeTab={activeTab}
             onTabChange={setActiveTab}
             isScanning={isScanning || loading}
             onStartScan={handleStartScan}
+            onCancel={handleCancel}
             onFileSelect={handleFileSelect}
             onRepoChange={setRepoUrl}
             repoUrl={repoUrl}
@@ -87,19 +96,13 @@ const Scan = () => {
             selectedFiles={selectedFiles}
           />
         </div>
-        <div className="space-y-4">
+
+        {/* Progress panel — takes 1/3 */}
+        <div>
           <ScanProgress
             progress={progress}
             isScanning={isScanning || loading}
-            onCancel={() => {
-              setIsScanning(false);
-              setProgress(0);
-            }}
-          />
-          <AgentPanel
-            loading={isScanning || loading}
-            agentsUsed={lastResult?.ai_agents_used || []}
-            logs={(isScanning ? [] : lastResult?.ai_logs) || ["Agent logs will appear after the scan completes."]}
+            onCancel={handleCancel}
           />
         </div>
       </div>

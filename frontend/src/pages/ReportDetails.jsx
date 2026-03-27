@@ -1,183 +1,233 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft, Download, Shield, AlertTriangle, AlertCircle,
   Info, FileText, Code2, BookOpen, Cpu, ChevronDown, ChevronUp,
+  CheckCircle2, Lock, ExternalLink, RefreshCw,
 } from 'lucide-react';
+// eslint-disable-next-line no-unused-vars
 import { AnimatePresence, motion } from 'framer-motion';
 import api from '../lib/api.js';
+import { normalizeReport } from '../lib/reportMapper.js';
 import GlassCard from '../components/GlassCard.jsx';
 import SeverityBadge from '../components/SeverityBadge.jsx';
+import ProgressBar from '../components/ProgressBar.jsx';
 
-// ─── helpers ────────────────────────────────────────────────────────────────
+// ─── helpers ─────────────────────────────────────────────────────────────────
 
-const s = (v, fallback = '—') => (v !== undefined && v !== null && v !== '' ? v : fallback);
+const fv = (v, fallback = '—') =>
+  v !== undefined && v !== null && String(v).trim() !== '' ? v : fallback;
 
 const riskStyle = (level = '') => {
-  if (level.includes('Critical')) return 'text-critical border-critical/50 bg-critical/10';
-  if (level.includes('High'))     return 'text-high border-high/50 bg-high/10';
-  if (level.includes('Medium'))   return 'text-medium border-medium/50 bg-medium/10';
-  return 'text-low border-low/50 bg-low/10';
+  if (level.includes('Critical')) return { badge: 'text-red-300 border-red-500/40 bg-red-500/10',    bar: 'critical' };
+  if (level.includes('High'))     return { badge: 'text-orange-300 border-orange-500/40 bg-orange-500/10', bar: 'danger' };
+  if (level.includes('Medium'))   return { badge: 'text-yellow-300 border-yellow-500/40 bg-yellow-500/10', bar: 'warning' };
+  return                                 { badge: 'text-green-300 border-green-500/40 bg-green-500/10',  bar: 'success' };
 };
 
-const severityIcon = (sev) => {
-  if (sev === 'Critical') return <AlertTriangle size={14} className="text-critical" />;
-  if (sev === 'High')     return <AlertCircle   size={14} className="text-high" />;
-  if (sev === 'Medium')   return <Info          size={14} className="text-medium" />;
-  return                         <Info          size={14} className="text-low" />;
+const sevIcon = (sev) => {
+  const sz = 13;
+  if (sev === 'Critical') return <AlertTriangle size={sz} className="text-red-400 flex-shrink-0" />;
+  if (sev === 'High')     return <AlertCircle   size={sz} className="text-orange-400 flex-shrink-0" />;
+  if (sev === 'Medium')   return <Info          size={sz} className="text-yellow-400 flex-shrink-0" />;
+  return                         <CheckCircle2  size={sz} className="text-green-400 flex-shrink-0" />;
 };
 
-// ─── sub-components ─────────────────────────────────────────────────────────
+// ─── micro components ─────────────────────────────────────────────────────────
 
-const StatCard = ({ label, value, sub, accent = false }) => (
-  <GlassCard className={`p-4 space-y-1 ${accent ? 'border-accent/30' : ''}`}>
-    <p className="text-xs uppercase tracking-widest text-slate-500">{label}</p>
-    <p className={`text-2xl font-bold ${accent ? 'text-accent' : 'text-white'}`}>{s(value, '0')}</p>
-    {sub && <p className="text-xs text-slate-400">{sub}</p>}
-  </GlassCard>
-);
-
-const Section = ({ title, icon: Icon, children, className = '' }) => (
-  <GlassCard className={`p-5 space-y-4 ${className}`}>
-    <div className="flex items-center gap-2 border-b border-white/5 pb-3">
-      {Icon && <Icon size={16} className="text-accent" />}
-      <h2 className="text-sm font-semibold uppercase tracking-widest text-slate-300">{title}</h2>
-    </div>
-    {children}
-  </GlassCard>
+const Label = ({ children }) => (
+  <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-500 mb-1.5">{children}</p>
 );
 
 const CodeBlock = ({ code }) =>
   code ? (
-    <pre className="bg-black/50 border border-white/5 rounded-lg p-3 text-xs text-slate-200 whitespace-pre-wrap overflow-x-auto font-mono leading-5">
+    <pre className="bg-[#0a0f1a] border border-cyan-900/30 rounded-xl p-4 text-[11px] text-cyan-100/80 whitespace-pre-wrap overflow-x-auto font-mono leading-[1.7] shadow-inner">
       {code}
     </pre>
   ) : null;
 
+const SectionHeader = ({ icon, title, count, accent = false }) => {
+  const IconComp = icon;
+  return (
+    <div className={`flex items-center gap-3 pb-4 border-b ${accent ? 'border-cyan-500/15' : 'border-white/[0.06]'}`}>
+      <div className={`h-8 w-8 rounded-xl flex items-center justify-center flex-shrink-0 ${accent ? 'bg-cyan-500/15' : 'bg-white/[0.05]'}`}>
+        {IconComp && <IconComp size={15} className={accent ? 'text-cyan-400' : 'text-slate-400'} />}
+      </div>
+      <div className="flex items-baseline gap-2">
+        <h2 className={`text-sm font-semibold ${accent ? 'text-cyan-300' : 'text-slate-200'}`}>{title}</h2>
+        {count !== undefined && <span className="text-xs text-slate-600 font-mono">({count})</span>}
+      </div>
+    </div>
+  );
+};
+
+const Panel = ({ children, className = '', accent = false }) => (
+  <div className={`rounded-2xl border p-6 space-y-5 ${accent
+    ? 'border-cyan-500/20 bg-gradient-to-br from-cyan-950/40 via-slate-900/60 to-slate-950/80 shadow-[0_0_40px_rgba(6,182,212,0.06)]'
+    : 'border-white/[0.07] bg-white/[0.025] backdrop-blur-sm'
+  } ${className}`}>
+    {children}
+  </div>
+);
+
+// ─── FindingCard ──────────────────────────────────────────────────────────────
+
 const FindingCard = ({ finding, idx }) => {
   const [open, setOpen] = useState(false);
   const sev = finding.severity || 'Low';
+  const sevColors = {
+    Critical: 'border-l-red-500/60 bg-red-500/[0.03]',
+    High:     'border-l-orange-500/60 bg-orange-500/[0.03]',
+    Medium:   'border-l-yellow-500/60 bg-yellow-500/[0.03]',
+    Low:      'border-l-green-500/60 bg-green-500/[0.03]',
+  };
 
   return (
-    <div className="rounded-xl border border-white/8 bg-white/[0.03] overflow-hidden">
+    <motion.div
+      initial={{ opacity: 0, y: 6 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: idx * 0.03, duration: 0.22 }}
+      className={`rounded-xl border border-white/[0.07] border-l-2 ${sevColors[sev] || ''} overflow-hidden`}
+    >
       <button
         type="button"
-        onClick={() => setOpen((v) => !v)}
-        className="w-full flex items-center justify-between px-4 py-3 hover:bg-white/5 transition text-left"
+        onClick={() => setOpen(v => !v)}
+        className="w-full flex items-center justify-between px-4 py-3.5 hover:bg-white/[0.03] transition-colors text-left gap-3"
       >
-        <div className="flex items-center gap-3 min-w-0">
-          <span className="text-xs text-slate-600 font-mono w-5 flex-shrink-0">{idx + 1}</span>
-          {severityIcon(sev)}
-          <span className="text-sm font-medium text-white truncate">{s(finding.name || finding.type, 'Unknown Finding')}</span>
+        <div className="flex items-center gap-3 min-w-0 flex-1">
+          <span className="text-[10px] text-slate-700 font-mono w-4 flex-shrink-0">
+            {String(idx + 1).padStart(2, '0')}
+          </span>
+          {sevIcon(sev)}
+          <span className="text-sm font-medium text-white truncate">
+            {fv(finding.name, 'Unknown Finding')}
+          </span>
           {finding.file_name && (
-            <span className="hidden sm:block text-xs text-slate-500 truncate">
+            <span className="hidden md:block text-[11px] text-slate-600 font-mono truncate">
               {finding.file_name}{finding.line_number ? `:${finding.line_number}` : ''}
             </span>
           )}
         </div>
-        <div className="flex items-center gap-2 flex-shrink-0 ml-2">
+        <div className="flex items-center gap-2 flex-shrink-0">
           <SeverityBadge level={sev} />
-          {open ? <ChevronUp size={14} className="text-slate-500" /> : <ChevronDown size={14} className="text-slate-500" />}
+          <div className="text-slate-600">
+            {open ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+          </div>
         </div>
       </button>
 
       <AnimatePresence initial={false}>
         {open && (
           <motion.div
-            initial={{ height: 0 }}
-            animate={{ height: 'auto' }}
-            exit={{ height: 0 }}
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.2 }}
             className="overflow-hidden"
           >
-            <div className="px-4 pb-4 space-y-3 border-t border-white/5 pt-3">
+            <div className="px-5 pb-5 pt-4 space-y-4 border-t border-white/[0.05]">
               {finding.file_name && (
-                <p className="text-xs text-slate-400">
-                  <span className="text-slate-600">File: </span>
-                  {finding.file_name}
-                  {finding.line_number ? ` · line ${finding.line_number}` : ''}
-                </p>
+                <div className="flex items-center gap-2 text-xs text-slate-500 font-mono">
+                  <FileText size={11} />
+                  {finding.file_name}{finding.line_number ? ` · line ${finding.line_number}` : ''}
+                </div>
               )}
               {finding.code_snippet && (
                 <div>
-                  <p className="text-xs text-slate-500 mb-1">Affected Code</p>
+                  <Label>Affected Code</Label>
                   <CodeBlock code={finding.code_snippet} />
                 </div>
               )}
-              {finding.description && (
-                <div>
-                  <p className="text-xs text-slate-500 mb-1">Description</p>
-                  <p className="text-sm text-slate-300 leading-relaxed">{finding.description}</p>
-                </div>
-              )}
-              {finding.impact && (
-                <div>
-                  <p className="text-xs text-slate-500 mb-1">Impact</p>
-                  <p className="text-sm text-slate-300 leading-relaxed">{finding.impact}</p>
-                </div>
-              )}
+              <div className="grid md:grid-cols-2 gap-4">
+                {finding.description && (
+                  <div>
+                    <Label>Description</Label>
+                    <p className="text-sm text-slate-300 leading-relaxed">{finding.description}</p>
+                  </div>
+                )}
+                {finding.impact && (
+                  <div>
+                    <Label>Impact</Label>
+                    <p className="text-sm text-slate-300 leading-relaxed">{finding.impact}</p>
+                  </div>
+                )}
+              </div>
               {finding.attack_example && (
                 <div>
-                  <p className="text-xs text-slate-500 mb-1">Attack Example</p>
-                  <p className="text-sm text-slate-300 leading-relaxed">{finding.attack_example}</p>
+                  <Label>Attack Example</Label>
+                  <CodeBlock code={finding.attack_example} />
                 </div>
               )}
-              {(finding.remediation || finding.recommendation) && (
+              {finding.remediation && (
                 <div>
-                  <p className="text-xs text-slate-500 mb-1">Recommendation</p>
-                  <p className="text-sm text-slate-300 leading-relaxed">{finding.remediation || finding.recommendation}</p>
-                </div>
-              )}
-              {finding.fix_code && (
-                <div>
-                  <p className="text-xs text-slate-500 mb-1">Fixed Code</p>
-                  <CodeBlock code={finding.fix_code} />
+                  <Label>Recommendation</Label>
+                  <p className="text-sm text-slate-300 leading-relaxed">{finding.remediation}</p>
                 </div>
               )}
               {finding.cwe_reference && (
-                <span className="inline-block px-2 py-0.5 rounded-full bg-white/5 border border-white/10 text-xs text-slate-400">
-                  {finding.cwe_reference}
-                </span>
+                <div className="flex items-center gap-2 pt-1">
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-800/80 border border-slate-700/60 text-xs text-slate-400 font-mono">
+                    <Lock size={10} />{finding.cwe_reference}
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-cyan-950/60 border border-cyan-800/40 text-xs text-cyan-400">
+                    <ExternalLink size={10} />OWASP
+                  </span>
+                </div>
               )}
             </div>
           </motion.div>
         )}
       </AnimatePresence>
-    </div>
+    </motion.div>
   );
 };
 
-// ─── skeleton ───────────────────────────────────────────────────────────────
+// ─── Skeleton ─────────────────────────────────────────────────────────────────
 
 const Skeleton = () => (
   <div className="space-y-6 animate-pulse">
-    <div className="h-28 rounded-2xl bg-white/5" />
+    <div className="h-36 rounded-2xl bg-white/[0.04]" />
     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-      {[...Array(4)].map((_, i) => <div key={i} className="h-24 rounded-2xl bg-white/5" />)}
+      {[...Array(4)].map((_, i) => <div key={i} className="h-28 rounded-2xl bg-white/[0.04]" />)}
     </div>
-    <div className="h-48 rounded-2xl bg-white/5" />
-    <div className="h-64 rounded-2xl bg-white/5" />
+    <div className="h-40 rounded-2xl bg-white/[0.04]" />
+    <div className="h-32 rounded-2xl bg-cyan-950/20 border border-cyan-900/20" />
+    {[...Array(3)].map((_, i) => <div key={i} className="h-14 rounded-xl bg-white/[0.03]" />)}
   </div>
 );
 
-// ─── main page ──────────────────────────────────────────────────────────────
+// ─── Main Page ────────────────────────────────────────────────────────────────
 
 const ReportDetails = () => {
   const { scanId } = useParams();
   const navigate = useNavigate();
-  const [report, setReport] = useState(null);
+  const [report, setReport] = useState(null);   // normalized report
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [downloading, setDownloading] = useState(false);
 
-  useEffect(() => {
+  const fetchReport = () => {
     if (!scanId) return;
     setLoading(true);
+    setError('');
     api
       .get(`/api/reports/${scanId}`)
-      .then((res) => setReport(res.data))
-      .catch((err) => setError(err?.response?.data?.detail || 'Report not found.'))
+      .then(res => {
+        const normalized = normalizeReport(res.data, scanId);
+        if (import.meta.env.DEV) {
+          console.debug('[ReportDetails] raw API response:', res.data);
+          console.debug('[ReportDetails] normalized report:', normalized);
+        }
+        setReport(normalized);
+      })
+      .catch(err => {
+        const msg = err?.response?.data?.detail || err?.message || 'Failed to load report.';
+        setError(msg);
+      })
       .finally(() => setLoading(false));
-  }, [scanId]);
+  };
+
+  useEffect(() => { fetchReport(); }, [scanId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleDownload = async () => {
     setDownloading(true);
@@ -186,273 +236,275 @@ const ReportDetails = () => {
       const blob = new Blob([res.data], { type: 'application/pdf' });
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
-      const stamp = new Date().toISOString().slice(0, 10);
       a.href = url;
-      a.download = `DristiScan_Report_${report?.file_name || scanId}_${stamp}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
+      a.download = `DristiScan_Report_${report?.file_name || scanId}_${new Date().toISOString().slice(0, 10)}.pdf`;
+      document.body.appendChild(a); a.click(); a.remove();
       window.URL.revokeObjectURL(url);
-    } catch {
-      // non-fatal
-    } finally {
-      setDownloading(false);
-    }
+    } catch { /* non-fatal */ }
+    finally { setDownloading(false); }
   };
 
+  // ── loading ──────────────────────────────────────────────────────────────
   if (loading) return <Skeleton />;
 
-  if (error || !report) {
+  // ── error ────────────────────────────────────────────────────────────────
+  if (error) {
     return (
       <div className="space-y-4">
-        <button
-          type="button"
-          onClick={() => navigate('/app/reports')}
-          className="flex items-center gap-2 text-sm text-slate-400 hover:text-white transition"
-        >
-          <ArrowLeft size={15} /> Back to Reports
+        <button type="button" onClick={() => navigate('/app/reports')}
+          className="flex items-center gap-2 text-sm text-slate-500 hover:text-white transition">
+          <ArrowLeft size={14} /> Back to Reports
         </button>
-        <GlassCard className="p-8 text-center space-y-2">
-          <AlertCircle size={32} className="text-red-400 mx-auto" />
-          <p className="text-white font-semibold">Report not found</p>
-          <p className="text-slate-400 text-sm">{error || `Scan #${scanId} does not exist.`}</p>
+        <GlassCard className="p-12 text-center space-y-4">
+          <AlertCircle size={40} className="text-red-400 mx-auto" />
+          <p className="text-white font-semibold text-lg">Could not load report</p>
+          <p className="text-slate-400 text-sm">{error}</p>
+          <button type="button" onClick={fetchReport}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white/[0.05] border border-white/10 text-sm text-slate-300 hover:bg-white/10 transition">
+            <RefreshCw size={14} /> Retry
+          </button>
         </GlassCard>
       </div>
     );
   }
 
-  // Normalise fields — backend returns FullStructuredReportSchema
-  const summary   = report.summary   || {};
-  const findings  = report.findings  || [];
-  const aiInsights = report.ai_insights || {};
-  const riskScore  = report.risk_score || {};
-  const secureVersion = report.secure_version || '';
+  // ── not found / empty ────────────────────────────────────────────────────
+  if (!report) {
+    return (
+      <div className="space-y-4">
+        <button type="button" onClick={() => navigate('/app/reports')}
+          className="flex items-center gap-2 text-sm text-slate-500 hover:text-white transition">
+          <ArrowLeft size={14} /> Back to Reports
+        </button>
+        <GlassCard className="p-12 text-center space-y-3">
+          <FileText size={40} className="text-slate-600 mx-auto" />
+          <p className="text-white font-semibold">No report data available</p>
+          <p className="text-slate-500 text-sm">Scan #{scanId} returned no report content.</p>
+        </GlassCard>
+      </div>
+    );
+  }
 
-  const fileName   = report.file_name || `Scan #${scanId}`;
-  const scanDate   = report.scan_date ? new Date(report.scan_date).toLocaleString() : '—';
-  const riskLevel  = summary.overall_risk || riskScore.reason || '—';
-  const secScore   = typeof summary.security_score === 'number'
-    ? summary.security_score
-    : typeof riskScore.score === 'number'
-    ? Math.max(0, 100 - riskScore.score * 10)
-    : '—';
+  // ── render ───────────────────────────────────────────────────────────────
+  const { summary, findings, ai_insights, recommendations, secure_version } = report;
 
-  // Split findings by category for dedicated sections
-  const secretFindings = findings.filter((f) =>
-    (f.category || '').toLowerCase().includes('secret') ||
-    (f.name || '').toLowerCase().includes('secret') ||
-    (f.name || '').toLowerCase().includes('key') ||
-    (f.name || '').toLowerCase().includes('credential')
-  );
-  const depFindings = findings.filter((f) =>
-    (f.category || '').toLowerCase().includes('depend') ||
-    (f.name || '').toLowerCase().includes('depend')
-  );
-  const mainFindings = findings.filter(
-    (f) => !secretFindings.includes(f) && !depFindings.includes(f)
-  );
+  const riskLevel = fv(summary.overall_risk, '');
+  const secScore  = summary.security_score ?? 0;
+  const risk      = riskStyle(riskLevel);
+  const scanDate  = report.scan_date ? new Date(report.scan_date).toLocaleString() : '—';
 
-  const recommendations = report.recommendations || [];
+  // split findings by category for dedicated sections
+  const isSecret = f => ['secret','key','credential','token'].some(k =>
+    (f.name||'').toLowerCase().includes(k) || (f.category||'').toLowerCase().includes(k));
+  const isDep = f => ['depend','package','library'].some(k =>
+    (f.name||'').toLowerCase().includes(k) || (f.category||'').toLowerCase().includes(k));
+
+  const secretFindings = findings.filter(isSecret);
+  const depFindings    = findings.filter(f => !isSecret(f) && isDep(f));
+  const mainFindings   = findings.filter(f => !isSecret(f) && !isDep(f));
+
+  const total = summary.total || findings.length || 1;
+  const sevCounts = [
+    { label: 'Critical', value: summary.critical, text: 'text-red-400',    border: 'border-red-500/25',    bg: 'bg-red-500/[0.06]',    bar: 'bg-red-500' },
+    { label: 'High',     value: summary.high,     text: 'text-orange-400', border: 'border-orange-500/25', bg: 'bg-orange-500/[0.06]', bar: 'bg-orange-500' },
+    { label: 'Medium',   value: summary.medium,   text: 'text-yellow-400', border: 'border-yellow-500/25', bg: 'bg-yellow-500/[0.06]', bar: 'bg-yellow-500' },
+    { label: 'Low',      value: summary.low,      text: 'text-green-400',  border: 'border-green-500/25',  bg: 'bg-green-500/[0.06]',  bar: 'bg-green-500' },
+  ];
+
+  const hasAiInsights = ai_insights.summary || ai_insights.most_critical_issue || ai_insights.fix_priority;
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="space-y-6"
-    >
-      {/* ── HERO ── */}
-      <GlassCard className="p-6">
-        <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
-          <div className="space-y-2">
-            <button
-              type="button"
-              onClick={() => navigate('/app/reports')}
-              className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-300 transition mb-1"
-            >
-              <ArrowLeft size={13} /> Back to Reports
-            </button>
-            <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Security Analysis Report</p>
-            <h1 className="text-2xl font-bold text-white leading-tight">{fileName}</h1>
-            <div className="flex flex-wrap items-center gap-3 text-xs text-slate-400">
-              <span>Scan ID: <span className="text-slate-200">#{scanId}</span></span>
-              <span>·</span>
-              <span>Date: <span className="text-slate-200">{scanDate}</span></span>
-              <span>·</span>
-              <span className={`px-2 py-0.5 rounded-full border text-xs font-semibold ${riskStyle(riskLevel)}`}>
-                {riskLevel}
-              </span>
-            </div>
-            <p className="text-xs text-slate-600">Generated by DristiScan</p>
-          </div>
-          <div className="flex items-center gap-2 flex-shrink-0">
-            <motion.button
-              whileHover={{ scale: 1.03 }}
-              whileTap={{ scale: 0.97 }}
-              onClick={handleDownload}
-              disabled={downloading}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-accent/10 border border-accent/30 text-accent text-sm hover:bg-accent/20 transition disabled:opacity-50"
-            >
-              <Download size={15} />
-              {downloading ? 'Preparing…' : 'Download PDF'}
-            </motion.button>
-          </div>
-        </div>
-      </GlassCard>
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6 pb-10">
 
-      {/* ── SUMMARY CARDS ── */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <StatCard label="Security Score" value={typeof secScore === 'number' ? `${Math.round(secScore)}` : secScore} sub="out of 100" accent />
-        <StatCard label="Total Findings" value={summary.total ?? findings.length} />
-        <StatCard label="Risk Level" value={riskLevel} />
-        <StatCard label="Scan Engine" value="DristiScan v2" />
+      {/* HERO */}
+      <div className="rounded-2xl border border-white/[0.07] bg-gradient-to-br from-slate-900/80 via-slate-950/90 to-[#050d1a]/95 p-6 shadow-[0_0_60px_rgba(6,182,212,0.05)]">
+        <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-5">
+          <div className="space-y-3 min-w-0">
+            <button type="button" onClick={() => navigate('/app/reports')}
+              className="flex items-center gap-1.5 text-xs text-slate-600 hover:text-slate-300 transition group">
+              <ArrowLeft size={12} className="group-hover:-translate-x-0.5 transition-transform" />
+              Back to Reports
+            </button>
+            <div>
+              <p className="text-[10px] uppercase tracking-[0.2em] text-cyan-600/80 mb-1.5">Security Analysis Report</p>
+              <h1 className="text-2xl md:text-3xl font-bold text-white leading-tight truncate">{report.file_name}</h1>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="px-3 py-1 rounded-lg bg-white/[0.04] border border-white/[0.08] text-xs text-slate-400 font-mono">#{scanId}</span>
+              <span className="px-3 py-1 rounded-lg bg-white/[0.04] border border-white/[0.08] text-xs text-slate-400">{scanDate}</span>
+              {riskLevel && (
+                <span className={`px-3 py-1 rounded-lg border text-xs font-semibold ${risk.badge}`}>{riskLevel}</span>
+              )}
+              <span className="px-3 py-1 rounded-lg bg-white/[0.04] border border-white/[0.08] text-xs text-slate-500">DristiScan v2</span>
+            </div>
+          </div>
+          <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
+            onClick={handleDownload} disabled={downloading}
+            className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-cyan-500/10 border border-cyan-500/25 text-cyan-300 text-sm font-semibold hover:bg-cyan-500/20 transition disabled:opacity-50 flex-shrink-0 self-start">
+            <Download size={15} />
+            {downloading ? 'Preparing…' : 'Download PDF'}
+          </motion.button>
+        </div>
       </div>
 
-      {/* ── EXECUTIVE SUMMARY ── */}
-      <Section title="Executive Summary" icon={FileText}>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          {[
-            { label: 'Critical', value: summary.critical ?? 0, cls: 'text-critical' },
-            { label: 'High',     value: summary.high     ?? 0, cls: 'text-high' },
-            { label: 'Medium',   value: summary.medium   ?? 0, cls: 'text-medium' },
-            { label: 'Low',      value: summary.low      ?? 0, cls: 'text-low' },
-          ].map(({ label, value, cls }) => (
-            <div key={label} className="rounded-xl bg-white/[0.03] border border-white/8 p-3 text-center">
-              <p className={`text-2xl font-bold ${cls}`}>{value}</p>
-              <p className="text-xs text-slate-500 mt-0.5">{label}</p>
+      {/* SUMMARY CARDS */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        {[
+          { label: 'Security Score', value: `${Math.round(secScore)}`, sub: 'out of 100', accent: true },
+          { label: 'Total Findings', value: summary.total, sub: 'vulnerabilities detected' },
+          { label: 'Risk Level',     value: riskLevel || '—', sub: 'overall assessment' },
+          { label: 'Scan Engine',    value: 'DristiScan', sub: 'v2 · rule + AI' },
+        ].map(({ label, value, sub, accent }) => (
+          <div key={label} className={`rounded-2xl border p-5 space-y-2 ${accent
+            ? 'border-cyan-500/20 bg-gradient-to-br from-cyan-950/40 to-slate-950/60'
+            : 'border-white/[0.07] bg-white/[0.025]'}`}>
+            <p className="text-[10px] uppercase tracking-[0.15em] text-slate-500">{label}</p>
+            <p className={`text-3xl font-bold leading-none ${accent ? 'text-cyan-300' : 'text-white'}`}>{value}</p>
+            <p className="text-[11px] text-slate-600">{sub}</p>
+            {accent && <div className="pt-1"><ProgressBar value={secScore} tone={risk.bar} /></div>}
+          </div>
+        ))}
+      </div>
+
+      {/* SEVERITY BREAKDOWN */}
+      <Panel>
+        <SectionHeader icon={Shield} title="Severity Breakdown" />
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          {sevCounts.map(({ label, value, text, border, bg, bar }) => (
+            <div key={label} className={`rounded-xl border ${border} ${bg} p-4 space-y-3`}>
+              <div className="flex items-center justify-between">
+                <p className="text-xs text-slate-500">{label}</p>
+                <p className={`text-2xl font-bold ${text}`}>{value}</p>
+              </div>
+              <div className="w-full bg-white/[0.05] rounded-full h-1.5 overflow-hidden">
+                <div className={`h-full rounded-full ${bar}`} style={{ width: `${Math.round((value / total) * 100)}%` }} />
+              </div>
+              <p className="text-[10px] text-slate-600">{Math.round((value / total) * 100)}% of findings</p>
             </div>
           ))}
         </div>
-        {aiInsights.summary && (
-          <p className="text-sm text-slate-300 leading-relaxed border-t border-white/5 pt-4">
-            {aiInsights.summary}
-          </p>
-        )}
-      </Section>
+      </Panel>
 
-      {/* ── AI INSIGHTS ── */}
-      {(aiInsights.summary || aiInsights.most_critical_issue || aiInsights.fix_priority) && (
-        <GlassCard className="p-5 border-accent/20 bg-accent/[0.03] space-y-4">
-          <div className="flex items-center gap-2 border-b border-accent/10 pb-3">
-            <Cpu size={16} className="text-accent" />
-            <h2 className="text-sm font-semibold uppercase tracking-widest text-accent">AI Insights</h2>
+      {/* AI INSIGHTS — only shown when backend provides real data */}
+      {hasAiInsights && (
+        <Panel accent>
+          <SectionHeader icon={Cpu} title="AI Insights" accent />
+          <div className="grid md:grid-cols-3 gap-5">
+            {[
+              { key: 'summary',             label: 'Analysis Summary' },
+              { key: 'most_critical_issue', label: 'Most Dangerous Issue' },
+              { key: 'fix_priority',        label: 'Fix Priority' },
+            ].map(({ key, label }) => ai_insights[key] ? (
+              <div key={key} className="space-y-2 p-4 rounded-xl bg-white/[0.03] border border-cyan-900/20">
+                <Label>{label}</Label>
+                <p className="text-sm text-slate-200 leading-relaxed">{ai_insights[key]}</p>
+              </div>
+            ) : null)}
           </div>
-          <div className="grid md:grid-cols-3 gap-4">
-            {aiInsights.summary && (
-              <div className="space-y-1">
-                <p className="text-xs text-slate-500 uppercase tracking-wide">Summary</p>
-                <p className="text-sm text-slate-200 leading-relaxed">{aiInsights.summary}</p>
-              </div>
-            )}
-            {aiInsights.most_critical_issue && (
-              <div className="space-y-1">
-                <p className="text-xs text-slate-500 uppercase tracking-wide">Most Dangerous</p>
-                <p className="text-sm text-slate-200 leading-relaxed">{aiInsights.most_critical_issue}</p>
-              </div>
-            )}
-            {aiInsights.fix_priority && (
-              <div className="space-y-1">
-                <p className="text-xs text-slate-500 uppercase tracking-wide">Fix Priority</p>
-                <p className="text-sm text-slate-200 leading-relaxed">{aiInsights.fix_priority}</p>
-              </div>
-            )}
-          </div>
-        </GlassCard>
+        </Panel>
       )}
 
-      {/* ── MAIN FINDINGS ── */}
-      {mainFindings.length > 0 && (
-        <Section title={`Vulnerability Findings (${mainFindings.length})`} icon={Shield}>
+      {/* MAIN FINDINGS */}
+      {mainFindings.length > 0 ? (
+        <Panel>
+          <SectionHeader icon={Shield} title="Vulnerability Findings" count={mainFindings.length} />
           <div className="space-y-2">
-            {mainFindings.map((f, i) => (
-              <FindingCard key={`main-${i}`} finding={f} idx={i} />
-            ))}
+            {mainFindings.map((finding, i) => <FindingCard key={`main-${i}`} finding={finding} idx={i} />)}
           </div>
-        </Section>
+        </Panel>
+      ) : findings.length === 0 && (
+        <Panel>
+          <SectionHeader icon={Shield} title="Vulnerability Findings" />
+          <p className="text-sm text-slate-500 text-center py-6">No findings recorded for this scan.</p>
+        </Panel>
       )}
 
-      {/* ── SECRET FINDINGS ── */}
+      {/* SECRET FINDINGS */}
       {secretFindings.length > 0 && (
-        <Section title={`Secret Exposure (${secretFindings.length})`} icon={AlertTriangle}>
+        <Panel>
+          <SectionHeader icon={AlertTriangle} title="Secret Exposure" count={secretFindings.length} />
           <div className="space-y-2">
-            {secretFindings.map((f, i) => (
-              <FindingCard key={`secret-${i}`} finding={f} idx={i} />
-            ))}
+            {secretFindings.map((finding, i) => <FindingCard key={`secret-${i}`} finding={finding} idx={i} />)}
           </div>
-        </Section>
+        </Panel>
       )}
 
-      {/* ── DEPENDENCY FINDINGS ── */}
+      {/* DEPENDENCY FINDINGS */}
       {depFindings.length > 0 && (
-        <Section title={`Dependency Issues (${depFindings.length})`} icon={Code2}>
+        <Panel>
+          <SectionHeader icon={Code2} title="Dependency Issues" count={depFindings.length} />
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="text-xs text-slate-500 uppercase border-b border-white/5">
-                  <th className="text-left py-2 pr-4">Package</th>
-                  <th className="text-left py-2 pr-4">Severity</th>
-                  <th className="text-left py-2 pr-4">Description</th>
-                  <th className="text-left py-2">Fix</th>
+                <tr className="border-b border-white/[0.06]">
+                  {['Package', 'Severity', 'Description', 'Fix'].map(h => (
+                    <th key={h} className="text-left py-3 pr-4 text-[10px] uppercase tracking-widest text-slate-500 font-semibold">{h}</th>
+                  ))}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-white/5">
-                {depFindings.map((f, i) => (
-                  <tr key={i} className="text-slate-300">
-                    <td className="py-2 pr-4 font-mono text-xs">{f.name}</td>
-                    <td className="py-2 pr-4"><SeverityBadge level={f.severity} /></td>
-                    <td className="py-2 pr-4 text-xs text-slate-400">{f.description}</td>
-                    <td className="py-2 text-xs text-slate-400">{f.remediation || '—'}</td>
+              <tbody className="divide-y divide-white/[0.04]">
+                {depFindings.map((dep, i) => (
+                  <tr key={i} className="hover:bg-white/[0.02] transition-colors">
+                    <td className="py-3 pr-4 font-mono text-xs text-slate-300">{dep.name}</td>
+                    <td className="py-3 pr-4"><SeverityBadge level={dep.severity} /></td>
+                    <td className="py-3 pr-4 text-xs text-slate-400 max-w-xs">{dep.description}</td>
+                    <td className="py-3 text-xs text-slate-400">{dep.remediation || '—'}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-        </Section>
+        </Panel>
       )}
 
-      {/* ── RISK SCORE ── */}
-      {(riskScore.score !== undefined || riskScore.reason) && (
-        <Section title="Risk Score" icon={AlertCircle}>
-          <div className="flex items-center gap-6">
-            {riskScore.score !== undefined && (
-              <div className="text-center">
-                <p className="text-4xl font-bold text-white">{Number(riskScore.score).toFixed(1)}</p>
-                <p className="text-xs text-slate-500 mt-1">out of 10</p>
-              </div>
-            )}
-            {riskScore.reason && (
-              <p className="text-sm text-slate-300 leading-relaxed">{riskScore.reason}</p>
-            )}
-          </div>
-        </Section>
+      {/* RECOMMENDATIONS */}
+      {recommendations.length > 0 && (
+        <Panel>
+          <SectionHeader icon={BookOpen} title="Recommendations" />
+          <ul className="space-y-3">
+            {recommendations.map((rec, i) => (
+              <li key={i} className="flex items-start gap-3 text-sm text-slate-300 leading-relaxed">
+                <span className="mt-0.5 h-5 w-5 rounded-full bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center flex-shrink-0">
+                  <span className="text-[10px] font-bold text-cyan-400">{i + 1}</span>
+                </span>
+                {rec}
+              </li>
+            ))}
+          </ul>
+        </Panel>
       )}
 
-      {/* ── RECOMMENDATIONS ── */}
-      {(recommendations.length > 0 || secureVersion) && (
-        <Section title="Recommendations" icon={BookOpen}>
-          {recommendations.length > 0 && (
-            <ul className="space-y-2">
-              {recommendations.map((rec, i) => (
-                <li key={i} className="flex items-start gap-2 text-sm text-slate-300">
-                  <span className="text-accent mt-0.5 flex-shrink-0">›</span>
-                  {typeof rec === 'string' ? rec : rec.text || JSON.stringify(rec)}
-                </li>
-              ))}
-            </ul>
-          )}
-          {secureVersion && (
-            <div className="border-t border-white/5 pt-4">
-              <p className="text-xs text-slate-500 mb-2 uppercase tracking-wide">Secure Code Suggestion</p>
-              <CodeBlock code={secureVersion} />
+      {/* SECURE VERSION */}
+      {secure_version && (
+        <Panel>
+          <SectionHeader icon={Shield} title="Secure Code Suggestion" />
+          <CodeBlock code={secure_version} />
+        </Panel>
+      )}
+
+      {/* COMPLIANCE */}
+      <Panel>
+        <SectionHeader icon={Lock} title="Compliance & References" />
+        <div className="grid sm:grid-cols-3 gap-4">
+          {[
+            { name: 'OWASP Top 10', desc: 'A03:2021 Injection · A02:2021 Cryptographic Failures · A05:2021 Security Misconfiguration', color: 'border-blue-500/20 bg-blue-500/[0.04]', text: 'text-blue-400' },
+            { name: 'CWE Mapping',  desc: 'Common Weakness Enumeration references are shown on each finding card above.', color: 'border-purple-500/20 bg-purple-500/[0.04]', text: 'text-purple-400' },
+            { name: 'CVSS Scoring', desc: 'Critical ≥ 9.0 · High 7.0–8.9 · Medium 4.0–6.9 · Low < 4.0', color: 'border-red-500/20 bg-red-500/[0.04]', text: 'text-red-400' },
+          ].map(({ name, desc, color, text }) => (
+            <div key={name} className={`rounded-xl border ${color} p-4 space-y-2`}>
+              <p className={`text-xs font-semibold ${text}`}>{name}</p>
+              <p className="text-xs text-slate-500 leading-relaxed">{desc}</p>
             </div>
-          )}
-        </Section>
-      )}
+          ))}
+        </div>
+      </Panel>
 
-      {/* ── FOOTER ── */}
-      <div className="text-center text-xs text-slate-600 py-4 space-y-1">
-        <p>Generated by DristiScan · Scan #{scanId}</p>
-        <p>{new Date().toLocaleString()}</p>
+      {/* FOOTER */}
+      <div className="text-center py-6 space-y-1 border-t border-white/[0.04]">
+        <p className="text-xs text-slate-700">Generated by DristiScan · Scan #{scanId}</p>
+        <p className="text-xs text-slate-800">{new Date().toLocaleString()}</p>
       </div>
+
     </motion.div>
   );
 };

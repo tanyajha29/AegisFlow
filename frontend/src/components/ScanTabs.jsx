@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Code, Upload, Github, Zap } from 'lucide-react';
+import { Code, Upload, Github, Zap, X } from 'lucide-react';
 
 const tabs = [
   { id: 'code', label: 'Code Editor', icon: Code },
@@ -13,6 +13,7 @@ const ScanTabs = ({
   onTabChange,
   isScanning,
   onStartScan,
+  onCancel,
   onFileSelect,
   onRepoChange,
   repoUrl,
@@ -123,17 +124,30 @@ const ScanTabs = ({
         </AnimatePresence>
       </div>
 
-      <div className="p-6 border-t border-border flex gap-4 bg-surface/40">
+      <div className="p-5 border-t border-border flex items-center gap-3 bg-surface/40">
         <motion.button
           onClick={onStartScan}
           disabled={isScanning}
           whileHover={!isScanning ? { scale: 1.02 } : {}}
           whileTap={!isScanning ? { scale: 0.97 } : {}}
-          className="flex-1 py-3 px-4 bg-gradient-to-r from-accent to-cyber rounded-lg text-navy font-semibold hover:shadow-glow text-sm disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+          className="flex-1 py-3 px-4 bg-gradient-to-r from-accent to-cyber rounded-xl text-navy font-semibold hover:shadow-glow text-sm disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
         >
           <Zap size={18} />
           {isScanning ? 'Scanning…' : 'Start Scan'}
         </motion.button>
+        {isScanning && onCancel && (
+          <motion.button
+            onClick={onCancel}
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            whileHover={{ scale: 1.03 }}
+            whileTap={{ scale: 0.97 }}
+            className="py-3 px-4 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 text-sm font-medium flex items-center gap-2 transition"
+          >
+            <X size={16} />
+            Cancel
+          </motion.button>
+        )}
       </div>
     </motion.div>
   );
