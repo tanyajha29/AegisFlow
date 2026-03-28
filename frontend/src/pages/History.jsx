@@ -4,6 +4,7 @@ import { ClockIcon, MagnifyingGlassIcon } from '@heroicons/react/24/outline';
 import GlassCard from '../components/GlassCard.jsx';
 import SeverityBadge from '../components/SeverityBadge.jsx';
 import api from '../lib/api.js';
+import SectionHeader from '../components/SectionHeader.jsx';
 
 const SkeletonRow = () => (
   <tr>
@@ -34,32 +35,31 @@ const History = () => {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
-        <div className="space-y-1">
-          <p className="text-xs uppercase tracking-widest text-slate-500">Scan History</p>
-          <h1 className="text-2xl font-bold text-white">Recent scans</h1>
-          <p className="text-sm text-slate-500">Filter by severity, date, or project.</p>
-        </div>
-        <div className="relative">
-          <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
-          <input
-            type="text"
-            placeholder="Search by filename…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-9 pr-4 py-2 rounded-xl bg-white/[0.04] border border-white/[0.08] text-sm text-slate-200 placeholder:text-slate-600 focus:outline-none focus:ring-1 focus:ring-accent/40 w-56 transition"
-          />
-        </div>
-      </div>
+      <SectionHeader
+        eyebrow="Scan History"
+        title="Recent scans"
+        description="Browse previous runs, confirm risk levels, and jump back into any report."
+        actions={
+          <div className="relative w-full sm:w-72">
+            <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
+            <input
+              type="text"
+              placeholder="Search by filename..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-9 pr-4 py-2 rounded-xl bg-white/5 border border-white/10 text-sm text-slate-200 placeholder:text-slate-600 focus:outline-none focus:ring-1 focus:ring-accent/40 w-full transition"
+            />
+          </div>
+        }
+      />
 
       <GlassCard className="overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm text-left">
             <thead>
-              <tr className="border-b border-white/[0.06]">
+              <tr className="border-b border-white/[0.08] bg-white/5">
                 {['Scan ID', 'File', 'Date', 'Risk Score', 'Total Issues', 'Severity'].map((h) => (
-                  <th key={h} className="py-3 px-4 text-[11px] uppercase tracking-widest text-slate-500 font-medium whitespace-nowrap">
+                  <th key={h} className="py-3 px-4 text-[11px] uppercase tracking-[0.28em] text-slate-500 font-medium whitespace-nowrap">
                     {h}
                   </th>
                 ))}
@@ -112,3 +112,4 @@ const History = () => {
 };
 
 export default History;
+

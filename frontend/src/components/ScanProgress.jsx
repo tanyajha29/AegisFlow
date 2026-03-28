@@ -20,10 +20,10 @@ const ScanProgress = ({ progress, isScanning, onCancel }) => {
     <motion.div
       initial={{ opacity: 0, scale: 0.96 }}
       animate={{ opacity: 1, scale: 1 }}
-      className="relative rounded-xl border border-border bg-card p-6 overflow-hidden h-full flex flex-col shadow-glow"
+      className="relative rounded-2xl border border-white/10 bg-surface/80 backdrop-blur-xl p-6 overflow-hidden h-full flex flex-col shadow-[0_20px_60px_rgba(0,0,0,0.45)]"
     >
       <motion.div
-        className="absolute inset-0 opacity-5"
+        className="absolute inset-0 opacity-20"
         animate={{
           background: [
             'linear-gradient(45deg, transparent, rgba(34,211,238,0.4), transparent)',
@@ -42,7 +42,7 @@ const ScanProgress = ({ progress, isScanning, onCancel }) => {
             <Shield size={22} className="text-accent" />
           </motion.div>
           <div>
-            <h3 className="text-lg font-semibold text-white">{isScanning ? 'Scanning…' : 'Ready to Scan'}</h3>
+            <h3 className="text-lg font-semibold text-white">{isScanning ? 'Scanning...' : 'Ready to Scan'}</h3>
             {isScanning && <p className="text-xs text-slate-400">{currentStep?.label}</p>}
           </div>
         </div>
@@ -55,7 +55,7 @@ const ScanProgress = ({ progress, isScanning, onCancel }) => {
                 {Math.round(progress)}%
               </motion.span>
             </div>
-            <div className="w-full h-2 bg-border rounded-full overflow-hidden relative">
+            <div className="w-full h-2 bg-white/5 border border-white/10 rounded-full overflow-hidden relative">
               <motion.div
                 className="h-full bg-gradient-to-r from-accent to-cyber rounded-full"
                 initial={{ width: 0 }}
@@ -115,3 +115,4 @@ const ScanProgress = ({ progress, isScanning, onCancel }) => {
 };
 
 export default ScanProgress;
+

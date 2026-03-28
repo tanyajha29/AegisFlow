@@ -342,7 +342,7 @@ const ReportDetails = () => {
             onClick={handleDownload} disabled={downloading}
             className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-cyan-500/10 border border-cyan-500/25 text-cyan-300 text-sm font-semibold hover:bg-cyan-500/20 transition disabled:opacity-50 flex-shrink-0 self-start">
             <Download size={15} />
-            {downloading ? 'Preparing…' : 'Download PDF'}
+            {downloading ? 'Preparing...' : 'Download PDF'}
           </motion.button>
         </div>
       </div>
@@ -510,3 +510,4 @@ const ReportDetails = () => {
 };
 
 export default ReportDetails;
+

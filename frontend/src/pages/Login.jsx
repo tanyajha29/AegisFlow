@@ -107,7 +107,7 @@ const Login = () => {
               disabled={loading}
               className="w-full py-3 rounded-xl bg-gradient-to-r from-cyber to-accent text-white font-semibold shadow-glow hover:opacity-95 transition"
             >
-              {loading ? 'Processing…' : mode === 'login' ? 'Login Securely' : 'Create Account'}
+              {loading ? 'Processing...' : mode === 'login' ? 'Login Securely' : 'Create Account'}
             </button>
           </form>
           <p className="text-xs text-slate-500 text-center">
@@ -120,3 +120,4 @@ const Login = () => {
 };
 
 export default Login;
+

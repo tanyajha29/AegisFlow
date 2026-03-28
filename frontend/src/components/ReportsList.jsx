@@ -49,10 +49,10 @@ const ActionButtons = ({ scanId, fileName, onDownload }) => {
 const ReportsList = ({ reports = [], onDownload }) => {
   return (
     <motion.div
-      className="relative rounded-lg border border-border bg-card p-6 overflow-hidden shadow-glow"
+      className="relative rounded-2xl border border-white/10 bg-surface/80 backdrop-blur-xl p-6 overflow-hidden shadow-[0_20px_60px_rgba(0,0,0,0.45)]"
     >
       <motion.div
-        className="absolute inset-0 opacity-5 pointer-events-none"
+        className="absolute inset-0 opacity-20 pointer-events-none"
         animate={{
           background: [
             'linear-gradient(45deg, transparent, rgba(34,211,238,0.35), transparent)',

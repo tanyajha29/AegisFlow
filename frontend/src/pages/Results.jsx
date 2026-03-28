@@ -6,6 +6,8 @@ import { useScan } from '../context/ScanContext.jsx';
 import ResultsFilter from '../components/ResultsFilter.jsx';
 import VulnerabilityList from '../components/VulnerabilityList.jsx';
 import AIInsightsDrawer from '../components/ai/AIInsightsDrawer.jsx';
+import SectionHeader from '../components/SectionHeader.jsx';
+import { Button } from '../components/ui/button';
 
 const Results = () => {
   const { lastResult } = useScan();
@@ -85,39 +87,39 @@ const Results = () => {
           {toast.message}
         </div>
       )}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-        <div>
-          <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Scan Results</p>
-          <div className="text-3xl font-semibold text-white leading-tight">
-            <div className="text-base text-slate-400 mb-1">Findings for</div>
-            <div>{displayName}</div>
-          </div>
-          <div className="flex flex-wrap gap-3 text-xs text-slate-400 mt-2">
-            <span className="px-2 py-1 rounded-md border border-border bg-white/5">Scan ID: {lastResult.scan_id}</span>
-            <span className="px-2 py-1 rounded-md border border-border bg-white/5">
-              Risk: {lastResult.risk_level || band.label}
-            </span>
-            <span className="px-2 py-1 rounded-md border border-border bg-white/5">
-              Generated: {new Date().toLocaleString()}
-            </span>
-          </div>
-        </div>
-        <button
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <SectionHeader
+          eyebrow="Scan Results"
+          title={`Findings for ${displayName}`}
+          description="Review severity, understand context, and export a polished report."
+        />
+        <Button
           type="button"
           onClick={handleDownload}
           disabled={downloading}
-          className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 border border-border text-slate-100 hover:border-accent/60 transition disabled:opacity-60"
+          variant="outline"
+          size="sm"
+          className="h-11 px-4 border-white/15 text-slate-100"
         >
           {downloading ? (
-            <svg className="h-5 w-5 animate-spin text-white" viewBox="0 0 24 24">
+            <svg className="h-4 w-4 animate-spin text-white" viewBox="0 0 24 24">
               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
             </svg>
           ) : (
-            <ArrowDownTrayIcon className="h-5 w-5" />
+            <ArrowDownTrayIcon className="h-4 w-4" />
           )}
           <span>{downloading ? 'Preparing...' : 'Download Report'}</span>
-        </button>
+        </Button>
+      </div>
+      <div className="flex flex-wrap gap-3 text-xs text-slate-400">
+        <span className="px-3 py-1 rounded-full border border-white/10 bg-white/5">Scan ID: {lastResult.scan_id}</span>
+        <span className="px-3 py-1 rounded-full border border-white/10 bg-white/5">
+          Risk: {lastResult.risk_level || band.label}
+        </span>
+        <span className="px-3 py-1 rounded-full border border-white/10 bg-white/5">
+          Generated: {new Date().toLocaleString()}
+        </span>
       </div>
 
       <div className="grid lg:grid-cols-3 gap-4">

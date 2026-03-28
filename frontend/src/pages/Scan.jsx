@@ -5,6 +5,7 @@ import GlassCard from "../components/GlassCard.jsx";
 import ScanTabs from "../components/ScanTabs.jsx";
 import ScanProgress from "../components/ScanProgress.jsx";
 import { useScan } from "../context/ScanContext.jsx";
+import SectionHeader from "../components/SectionHeader.jsx";
 
 const Scan = () => {
   const [code, setCode] = useState("// Paste your code here\n");
@@ -66,12 +67,11 @@ const Scan = () => {
 
   return (
     <motion.div className="space-y-6" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
-      {/* Page header */}
-      <div>
-        <p className="text-xs uppercase tracking-widest text-slate-500">Scan Workspace</p>
-        <h1 className="text-2xl font-bold text-white mt-1">Run a deep security scan</h1>
-        <p className="text-sm text-slate-500 mt-1">Paste code, upload a file, or scan a GitHub repo.</p>
-      </div>
+      <SectionHeader
+        eyebrow="Scan Workspace"
+        title="Run a deep security scan"
+        description="Paste code, upload a file, or point us at a repository. Your inputs stay private and process inside the secure pipeline."
+      />
 
       {localError && (
         <GlassCard className="p-3 text-sm text-red-400 border-red-500/40 bg-red-500/10">

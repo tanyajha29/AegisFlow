@@ -19,6 +19,9 @@ import {
 } from 'chart.js';
 import StatCard from '../components/StatCard.jsx';
 import ChartCard from '../components/ChartCard.jsx';
+import GlassCard from '../components/GlassCard.jsx';
+import SectionHeader from '../components/SectionHeader.jsx';
+import { Button } from '../components/ui/button';
 
 ChartJS.register(
   CategoryScale,
@@ -117,24 +120,25 @@ const Dashboard = () => {
     },
   };
 
+  const recentSummaries = [...sortedHistory].reverse().slice(0, 4);
+
   return (
     <div className="space-y-8">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
-        <div className="space-y-1">
-          <p className="text-xs uppercase tracking-widest text-slate-500">Security Overview</p>
-          <h1 className="text-2xl font-bold text-white">Welcome back, engineer.</h1>
-          <p className="text-sm text-slate-500">Monitor scans, risks, and remediation velocity.</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <button className="px-4 py-2 rounded-xl bg-white/[0.04] border border-white/[0.08] text-slate-300 text-sm hover:bg-white/[0.08] transition">
-            Create API Key
-          </button>
-          <button className="px-4 py-2 rounded-xl bg-gradient-to-r from-cyan-400 to-blue-600 text-white text-sm font-semibold shadow-[0_0_16px_rgba(34,211,238,0.3)] hover:shadow-[0_0_24px_rgba(34,211,238,0.45)] transition">
-            New Scan
-          </button>
-        </div>
-      </div>
+      <SectionHeader
+        eyebrow="Security Overview"
+        title="Command Center"
+        description="Monitor scans, risk posture, and remediation momentum in a single, glassy dashboard."
+        actions={
+          <>
+            <Button variant="outline" size="sm" className="border-white/15 text-slate-100">
+              Create API Key
+            </Button>
+            <Button size="sm" className="shadow-[0_0_24px_rgba(34,211,238,0.35)]">
+              New Scan
+            </Button>
+          </>
+        }
+      />
 
       {/* Stat cards */}
       <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -143,30 +147,51 @@ const Dashboard = () => {
           value={loading ? '—' : totalScans}
           subtext="All time"
           icon={BoltIcon}
-          color="bg-cyan-500/20"
+          tone="cyan"
         />
         <StatCard
           title="Total Vulnerabilities"
           value={loading ? '—' : totalIssues}
           subtext="Across all scans"
           icon={ExclamationTriangleIcon}
-          color="bg-red-500/20"
+          tone="amber"
         />
         <StatCard
           title="Avg Security Score"
           value={loading ? '—' : avgScore}
           subtext="Out of 100"
           icon={ShieldCheckIcon}
-          color="bg-accent/20"
+          tone="blue"
         />
         <StatCard
           title="Recent Activity"
           value={loading ? '—' : `${Math.min(totalScans, 5)} scans`}
           subtext="Latest runs"
           icon={ChartBarSquareIcon}
-          color="bg-white/10"
+          tone="green"
         />
       </div>
+
+      {/* Highlight banner */}
+      <GlassCard tone="accent" className="p-5">
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div className="space-y-1">
+            <p className="text-xs uppercase tracking-[0.24em] text-slate-400">Live posture</p>
+            <p className="text-lg font-semibold text-white">Security score trending at {loading ? '—' : `${avgScore}/100`}</p>
+            <p className="text-sm text-slate-400">
+              Keep momentum by scheduling your next scan and sharing reports with stakeholders.
+            </p>
+          </div>
+          <div className="flex gap-3">
+            <Button variant="outline" size="sm" className="border-white/15 text-slate-100">
+              View Reports
+            </Button>
+            <Button size="sm" className="shadow-[0_0_24px_rgba(34,211,238,0.35)]">
+              Schedule Scan
+            </Button>
+          </div>
+        </div>
+      </GlassCard>
 
       {/* Charts */}
       <div className="grid lg:grid-cols-3 gap-4">
@@ -196,6 +221,38 @@ const Dashboard = () => {
           />
         </ChartCard>
       </div>
+
+      {/* Recent scans list */}
+      <GlassCard className="p-5">
+        <div className="flex items-center justify-between mb-3">
+          <div>
+            <p className="text-xs uppercase tracking-[0.24em] text-slate-500">Recent scans</p>
+            <p className="text-sm text-slate-300">Latest activity across your workspace</p>
+          </div>
+          <span className="px-3 py-1 rounded-full text-xs bg-white/5 border border-white/10 text-slate-200">
+            {recentSummaries.length} shown
+          </span>
+        </div>
+        <div className="grid md:grid-cols-2 gap-3">
+          {recentSummaries.map((item) => (
+            <div
+              key={item.scan_id}
+              className="flex items-center justify-between rounded-xl border border-white/10 bg-white/5 px-4 py-3 hover:border-accent/30 transition"
+            >
+              <div className="min-w-0">
+                <p className="text-sm text-white font-semibold truncate">
+                  {item.display_file_name || item.file_name}
+                </p>
+                <p className="text-xs text-slate-500">Scan #{item.scan_id}</p>
+              </div>
+              <div className="text-right">
+                <p className="text-sm font-semibold text-accent">{computeScore(item)}</p>
+                <p className="text-xs text-slate-500">{new Date(item.scan_date || 0).toLocaleDateString()}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </GlassCard>
     </div>
   );
 };

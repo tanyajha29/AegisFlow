@@ -22,8 +22,13 @@ const ScanTabs = ({
   selectedFiles = [],
 }) => {
   return (
-    <motion.div whileHover={!isScanning ? { scale: 1.005 } : {}} className="relative rounded-xl border border-border bg-card overflow-hidden shadow-glow">
-      <div className="flex border-b border-border bg-surface/30">
+    <motion.div
+      whileHover={!isScanning ? { scale: 1.005 } : {}}
+      className="relative overflow-hidden rounded-2xl border border-white/10 bg-surface/80 backdrop-blur-xl shadow-[0_20px_60px_rgba(0,0,0,0.45)]"
+    >
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-white/5 via-transparent to-accent/10 opacity-70" />
+
+      <div className="relative z-10 flex border-b border-white/10 bg-white/5">
         {tabs.map((tab, idx) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
@@ -32,7 +37,9 @@ const ScanTabs = ({
               key={tab.id}
               onClick={() => !isScanning && onTabChange(tab.id)}
               className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium transition-all ${
-                isActive ? 'text-accent border-b-2 border-accent bg-accent/5' : 'text-slate-400 hover:text-white'
+                isActive
+                  ? 'text-white border-b-2 border-accent bg-gradient-to-br from-cyber/20 via-accent/10 to-transparent shadow-[0_10px_30px_rgba(34,211,238,0.25)]'
+                  : 'text-slate-400 hover:text-white'
               }`}
               disabled={isScanning}
               whileHover={!isScanning ? { backgroundColor: 'rgba(34,211,238,0.04)' } : {}}
@@ -44,7 +51,7 @@ const ScanTabs = ({
         })}
       </div>
 
-      <div className="p-6 min-h-[320px]">
+      <div className="relative z-10 p-6 min-h-[320px]">
         <AnimatePresence mode="wait">
           <motion.div
             key={activeTab}
@@ -56,19 +63,22 @@ const ScanTabs = ({
           >
             {activeTab === 'code' && (
               <>
-                <label className="block text-sm font-semibold text-white">Paste your code</label>
+                <div className="flex items-center justify-between">
+                  <label className="block text-sm font-semibold text-white">Paste your code</label>
+                  <span className="text-[11px] text-slate-500 uppercase tracking-[0.18em]">Secure sandbox</span>
+                </div>
                 <textarea
                   value={code}
                   onChange={(e) => setCode(e.target.value)}
                   disabled={isScanning}
-                  className="w-full h-64 p-4 bg-surface border border-border rounded-lg font-mono text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-accent/50 disabled:opacity-60 resize-none"
+                  className="w-full h-64 p-4 bg-white/5 border border-white/10 rounded-xl font-mono text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-accent/50 disabled:opacity-60 resize-none shadow-inner shadow-black/40"
                   placeholder="// Paste your code here..."
                 />
               </>
             )}
 
             {activeTab === 'file' && (
-              <div className="border-2 border-dashed border-border rounded-lg p-8 text-center hover:border-accent/60 transition-colors">
+              <div className="border-2 border-dashed border-white/15 rounded-xl p-8 text-center hover:border-accent/60 transition-colors bg-white/5">
                 <motion.div animate={{ y: [0, -6, 0] }} transition={{ repeat: Infinity, duration: 2 }} className="mb-4">
                   <Upload size={32} className="mx-auto text-accent" />
                 </motion.div>
@@ -85,13 +95,13 @@ const ScanTabs = ({
                 />
                 <label
                   htmlFor="file-upload"
-                  className="inline-block px-4 py-2 bg-accent/20 hover:bg-accent/30 text-accent rounded-lg cursor-pointer transition-colors"
+                  className="inline-block px-4 py-2 bg-accent/20 hover:bg-accent/30 text-accent rounded-lg cursor-pointer transition-colors border border-accent/30 shadow-[0_0_16px_rgba(34,211,238,0.25)]"
                 >
                   Browse Files
                 </label>
 
                 {selectedFiles.length > 0 && (
-                  <div className="mt-4 text-left bg-surface/60 border border-border/60 rounded-lg p-3 space-y-2 max-h-40 overflow-y-auto">
+                  <div className="mt-4 text-left bg-white/5 border border-white/10 rounded-xl p-3 space-y-2 max-h-40 overflow-y-auto">
                     <p className="text-xs text-slate-400">Selected files</p>
                     <ul className="text-sm text-slate-200 space-y-1">
                       {selectedFiles.map((file) => (
@@ -115,7 +125,7 @@ const ScanTabs = ({
                   onChange={(e) => onRepoChange(e.target.value)}
                   disabled={isScanning}
                   placeholder="https://github.com/username/repository"
-                  className="w-full px-4 py-3 bg-surface border border-border rounded-lg text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-accent/50 disabled:opacity-60"
+                  className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-accent/50 disabled:opacity-60"
                 />
                 <p className="text-xs text-slate-400">Scans the default branch of the repository.</p>
               </>
@@ -124,7 +134,7 @@ const ScanTabs = ({
         </AnimatePresence>
       </div>
 
-      <div className="p-5 border-t border-border flex items-center gap-3 bg-surface/40">
+      <div className="relative z-10 p-5 border-t border-white/10 flex items-center gap-3 bg-white/5">
         <motion.button
           onClick={onStartScan}
           disabled={isScanning}
@@ -133,7 +143,7 @@ const ScanTabs = ({
           className="flex-1 py-3 px-4 bg-gradient-to-r from-accent to-cyber rounded-xl text-navy font-semibold hover:shadow-glow text-sm disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
         >
           <Zap size={18} />
-          {isScanning ? 'Scanning…' : 'Start Scan'}
+          {isScanning ? 'Scanning...' : 'Start Scan'}
         </motion.button>
         {isScanning && onCancel && (
           <motion.button
@@ -154,3 +164,4 @@ const ScanTabs = ({
 };
 
 export default ScanTabs;
+

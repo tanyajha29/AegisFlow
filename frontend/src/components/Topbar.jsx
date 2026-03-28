@@ -19,7 +19,7 @@ const Topbar = ({ onToggleSidebar }) => {
   const title = useMemo(() => routeTitle(pathname), [pathname]);
 
   return (
-    <header className="sticky top-0 z-20 border-b border-white/[0.06] bg-slate-950/80 backdrop-blur-xl">
+    <header className="sticky top-0 z-20 border-b border-white/[0.06] bg-slate-950/80 backdrop-blur-2xl shadow-[0_10px_40px_rgba(0,0,0,0.35)]">
       <div className="flex items-center gap-4 px-5 py-3 md:px-6">
         {/* Mobile hamburger */}
         <button
@@ -30,17 +30,19 @@ const Topbar = ({ onToggleSidebar }) => {
         </button>
 
         {/* Page title */}
-        <motion.div
-          key={title}
-          initial={{ opacity: 0, y: 4 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.15 }}
-          className="flex items-center gap-2.5"
-        >
-          <span className="text-[11px] uppercase tracking-widest text-slate-600 hidden sm:block">Page</span>
-          <span className="hidden sm:block h-4 w-px bg-white/10" />
-          <span className="text-sm font-semibold text-slate-100">{title}</span>
-        </motion.div>
+        <div className="flex items-center gap-3">
+          <span className="hidden sm:block h-8 w-px bg-white/10" />
+          <motion.div
+            key={title}
+            initial={{ opacity: 0, y: 4 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.15 }}
+            className="flex flex-col"
+          >
+            <span className="text-[11px] uppercase tracking-[0.28em] text-slate-500">Command Center</span>
+            <span className="text-sm font-semibold text-white">{title}</span>
+          </motion.div>
+        </div>
 
         <div className="flex-1" />
 
@@ -55,7 +57,7 @@ const Topbar = ({ onToggleSidebar }) => {
             <span className="absolute top-1.5 right-1.5 h-1.5 w-1.5 bg-accent rounded-full" />
           </motion.button>
 
-          <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-cyan-400 to-blue-600 flex items-center justify-center shadow-[0_0_12px_rgba(34,211,238,0.25)]">
+          <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-cyber to-accent flex items-center justify-center shadow-[0_0_12px_rgba(34,211,238,0.25)] border border-white/10">
             <ShieldCheckIcon className="h-5 w-5 text-white" />
           </div>
         </div>

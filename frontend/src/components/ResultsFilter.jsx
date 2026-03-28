@@ -20,7 +20,7 @@ const ResultsFilter = ({ selectedSeverity, onSeverityChange, searchTerm, onSearc
           placeholder="Search vulnerabilities..."
           value={searchTerm}
           onChange={(e) => onSearchChange(e.target.value)}
-          className="w-full pl-10 pr-4 py-3 bg-surface border border-border rounded-lg text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-accent/50 transition-all"
+          className="w-full pl-10 pr-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-accent/50 transition-all shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]"
         />
       </div>
 
@@ -33,10 +33,10 @@ const ResultsFilter = ({ selectedSeverity, onSeverityChange, searchTerm, onSearc
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               onClick={() => onSeverityChange(severity.value)}
-              className={`px-4 py-2 rounded-lg font-medium transition-all ${
+              className={`px-4 py-2 rounded-xl font-medium transition-all ${
                 active
-                  ? 'bg-accent/20 text-accent border border-accent/50'
-                  : 'bg-card border border-border text-slate-400 hover:text-white'
+                  ? 'bg-gradient-to-r from-cyber/30 via-accent/30 to-transparent text-white border border-accent/50 shadow-[0_10px_30px_rgba(34,211,238,0.25)]'
+                  : 'bg-white/5 border border-white/10 text-slate-400 hover:text-white'
               }`}
             >
               {severity.label}
