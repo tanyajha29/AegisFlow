@@ -19,11 +19,11 @@ const Topbar = ({ onToggleSidebar }) => {
   const title = useMemo(() => routeTitle(pathname), [pathname]);
 
   return (
-    <header className="sticky top-0 z-20 border-b border-white/[0.06] bg-slate-950/80 backdrop-blur-xl">
-      <div className="flex items-center gap-4 px-5 py-3 md:px-6">
+    <header className="sticky top-0 z-20 border-b border-blue-500/10 bg-slate-950/80 backdrop-blur-xl">
+      <div className="flex items-center gap-4 px-6 py-4 md:px-8">
         {/* Mobile hamburger */}
         <button
-          className="md:hidden p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/5 transition"
+          className="md:hidden p-2 rounded-lg text-slate-400 hover:text-white hover:bg-blue-500/10 transition-all"
           onClick={onToggleSidebar}
         >
           <Bars3Icon className="h-5 w-5" />
@@ -34,28 +34,32 @@ const Topbar = ({ onToggleSidebar }) => {
           key={title}
           initial={{ opacity: 0, y: 4 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.15 }}
-          className="flex items-center gap-2.5"
+          transition={{ duration: 0.2 }}
+          className="flex items-center gap-3"
         >
-          <span className="text-[11px] uppercase tracking-widest text-slate-600 hidden sm:block">Page</span>
-          <span className="hidden sm:block h-4 w-px bg-white/10" />
-          <span className="text-sm font-semibold text-slate-100">{title}</span>
+          <span className="text-[10px] uppercase tracking-widest text-blue-400/60 hidden sm:block font-semibold">Page</span>
+          <span className="hidden sm:block h-5 w-px bg-blue-500/20" />
+          <span className="text-base font-bold text-white">{title}</span>
         </motion.div>
 
         <div className="flex-1" />
 
         {/* Right actions */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
           <motion.button
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
-            className="relative h-9 w-9 rounded-xl bg-white/[0.04] border border-white/[0.08] flex items-center justify-center text-slate-400 hover:text-white hover:border-white/20 transition"
+            className="relative h-10 w-10 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-slate-400 hover:text-white hover:bg-blue-500/20 hover:border-blue-500/40 transition-all"
           >
-            <BellIcon className="h-4.5 w-4.5 h-[18px] w-[18px]" />
-            <span className="absolute top-1.5 right-1.5 h-1.5 w-1.5 bg-accent rounded-full" />
+            <BellIcon className="h-5 w-5" />
+            <motion.span
+              animate={{ scale: [1, 1.2, 1] }}
+              transition={{ repeat: Infinity, duration: 2 }}
+              className="absolute top-1 right-1 h-2 w-2 bg-cyan-400 rounded-full shadow-[0_0_8px_rgba(6,182,212,0.6)]"
+            />
           </motion.button>
 
-          <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-cyan-400 to-blue-600 flex items-center justify-center shadow-[0_0_12px_rgba(34,211,238,0.25)]">
+          <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-cyan-400 to-blue-600 flex items-center justify-center shadow-[0_0_20px_rgba(59,130,246,0.4),0_0_40px_rgba(6,182,212,0.2)]">
             <ShieldCheckIcon className="h-5 w-5 text-white" />
           </div>
         </div>

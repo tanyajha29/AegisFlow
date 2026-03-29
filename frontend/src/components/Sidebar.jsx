@@ -31,10 +31,10 @@ const NavItem = ({ to, label, icon: Icon, collapsed }) => (
     to={to}
     end={to === '/app'}
     className={({ isActive }) =>
-      `group relative flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-150 ${
+      `group relative flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 ${
         isActive
-          ? 'bg-accent/10 border border-accent/25 text-white shadow-[inset_0_0_0_1px_rgba(34,211,238,0.15)] before:absolute before:left-0 before:top-2 before:bottom-2 before:w-0.5 before:rounded-full before:bg-accent'
-          : 'text-slate-400 hover:text-slate-100 hover:bg-white/5 border border-transparent'
+          ? 'bg-blue-500/15 border border-blue-500/30 text-white shadow-[0_0_12px_rgba(59,130,246,0.2)]'
+          : 'text-slate-400 hover:text-slate-200 hover:bg-white/5 border border-transparent hover:border-blue-500/20'
       }`
     }
     title={collapsed ? label : undefined}
@@ -49,13 +49,13 @@ const Sidebar = ({ collapsed, onToggle }) => {
 
   return (
     <aside
-      className={`fixed md:static z-30 h-screen flex flex-col bg-slate-950/95 border-r border-white/[0.06] backdrop-blur-2xl transition-all duration-300 ${
-        collapsed ? '-translate-x-full md:translate-x-0 md:w-[68px]' : 'translate-x-0 w-64'
+      className={`fixed md:sticky top-0 left-0 z-30 h-screen flex flex-col bg-gradient-to-b from-slate-950/98 to-slate-950/95 border-r border-blue-500/10 backdrop-blur-xl transition-all duration-300 ${
+        collapsed ? '-translate-x-full md:translate-x-0 md:w-[70px]' : 'translate-x-0 w-64'
       }`}
     >
       {/* Brand */}
-      <div className={`flex items-center gap-3 px-4 py-5 border-b border-white/[0.06] ${collapsed ? 'justify-center' : ''}`}>
-        <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-cyan-400 to-blue-600 flex items-center justify-center shadow-[0_0_16px_rgba(34,211,238,0.35)] flex-shrink-0">
+      <div className={`flex items-center gap-3 px-4 py-6 border-b border-blue-500/10 ${collapsed ? 'justify-center' : ''}`}>
+        <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-cyan-400 to-blue-600 flex items-center justify-center shadow-[0_0_20px_rgba(59,130,246,0.4),0_0_40px_rgba(6,182,212,0.2)] flex-shrink-0">
           <EyeIcon className="h-5 w-5 text-white" />
         </div>
         {!collapsed && (
@@ -67,18 +67,18 @@ const Sidebar = ({ collapsed, onToggle }) => {
       </div>
 
       {/* Main nav */}
-      <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-1">
+      <nav className="flex-1 overflow-y-auto px-3 py-5 space-y-1.5 scrollbar-thin scrollbar-thumb-blue-500/20 scrollbar-track-transparent">
         {!collapsed && (
-          <p className="text-[10px] uppercase tracking-widest text-slate-600 px-3 mb-2">Workspace</p>
+          <p className="text-[10px] uppercase tracking-widest text-slate-600 px-2 mb-3">Workspace</p>
         )}
         {mainNav.map((item) => (
           <NavItem key={item.to} {...item} collapsed={collapsed} />
         ))}
 
-        <div className={`my-3 border-t border-white/[0.06] ${collapsed ? 'mx-1' : 'mx-0'}`} />
+        <div className={`my-4 border-t border-blue-500/10 ${collapsed ? 'mx-1' : 'mx-0'}`} />
 
         {!collapsed && (
-          <p className="text-[10px] uppercase tracking-widest text-slate-600 px-3 mb-2">Reports</p>
+          <p className="text-[10px] uppercase tracking-widest text-slate-600 px-2 mb-3">Reports</p>
         )}
         {secondaryNav.map((item) => (
           <NavItem key={item.to} {...item} collapsed={collapsed} />
@@ -86,11 +86,11 @@ const Sidebar = ({ collapsed, onToggle }) => {
       </nav>
 
       {/* Bottom area */}
-      <div className="px-3 py-4 border-t border-white/[0.06] space-y-2">
+      <div className="px-3 py-4 border-t border-blue-500/10 space-y-2 mt-auto">
         <button
           onClick={logout}
           title={collapsed ? 'Logout' : undefined}
-          className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-400 hover:text-red-400 hover:bg-red-500/5 border border-transparent hover:border-red-500/20 transition-all text-sm font-medium ${collapsed ? 'justify-center' : ''}`}
+          className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-400 hover:text-red-300 hover:bg-red-500/10 border border-transparent hover:border-red-500/20 transition-all text-sm font-medium ${collapsed ? 'justify-center' : ''}`}
         >
           <ArrowRightStartOnRectangleIcon className="h-5 w-5 flex-shrink-0" />
           {!collapsed && <span>Logout</span>}
@@ -99,7 +99,7 @@ const Sidebar = ({ collapsed, onToggle }) => {
         {/* Collapse toggle — desktop only */}
         <button
           onClick={onToggle}
-          className={`hidden md:flex w-full items-center gap-3 px-3 py-2 rounded-xl text-slate-600 hover:text-slate-300 hover:bg-white/5 transition-all text-xs ${collapsed ? 'justify-center' : ''}`}
+          className={`hidden md:flex w-full items-center gap-3 px-3 py-2 rounded-lg text-slate-600 hover:text-slate-300 hover:bg-blue-500/10 transition-all text-xs ${collapsed ? 'justify-center' : ''}`}
         >
           {collapsed ? (
             <ChevronRightIcon className="h-4 w-4" />
@@ -114,7 +114,7 @@ const Sidebar = ({ collapsed, onToggle }) => {
 
       {/* Mobile close button */}
       <button
-        className="md:hidden absolute top-4 right-4 text-slate-400 hover:text-white"
+        className="md:hidden absolute top-4 right-4 text-slate-400 hover:text-white transition"
         onClick={onToggle}
       >
         ✕

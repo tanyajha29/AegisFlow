@@ -14,18 +14,19 @@ import Layout from './components/Layout.jsx';
 import LandingPage from './pages/page';
 
 const Protected = ({ children }) => {
-  const { user } = useAuth();
-  return user ? children : <Navigate to="/login" replace />;
+  // TEMPORARILY REMOVED AUTH CHECK FOR UI TESTING
+  return children;
 };
 
 const App = () => {
-  const { user } = useAuth();
+  // TEMPORARILY REMOVED AUTH CHECK FOR UI TESTING
+  const user = { id: '1', email: 'test@example.com' };
 
   return (
-    <div className="min-h-screen bg-navy text-slate-100">
+    <div className="min-h-screen bg-gradient-to-br from-slate-950 to-slate-900 text-slate-100">
       <Routes>
-        <Route path="/" element={user ? <Navigate to="/app" replace /> : <LandingPage />} />
-        <Route path="/login" element={user ? <Navigate to="/app" replace /> : <Login />} />
+        <Route path="/" element={<Navigate to="/app" replace />} />
+        <Route path="/login" element={<Login />} />
         <Route
           path="/app/*"
           element={
@@ -45,7 +46,7 @@ const App = () => {
             </Protected>
           }
         />
-        <Route path="*" element={<Navigate to="/" replace />} />
+        <Route path="*" element={<Navigate to="/app" replace />} />
       </Routes>
     </div>
   );
