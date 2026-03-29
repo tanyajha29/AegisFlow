@@ -122,8 +122,8 @@ const Results = () => {
         </span>
       </div>
 
-      <div className="grid lg:grid-cols-3 gap-4">
-        <GlassCard className="p-5 space-y-3">
+      <div className="grid lg:grid-cols-3 gap-4 items-start">
+        <GlassCard className="p-5 space-y-3 h-full">
           <p className="text-xs uppercase tracking-widest text-slate-500">Security Score</p>
           <div className="flex items-end gap-3">
             <p className="text-4xl font-bold text-white">{Math.round(securityScore)}</p>
@@ -132,7 +132,7 @@ const Results = () => {
           <ProgressBar value={securityScore} tone={band.tone} />
           <p className={`text-xs font-semibold ${band.text}`}>{band.label}</p>
         </GlassCard>
-        <GlassCard className="p-5 space-y-3">
+        <GlassCard className="p-5 space-y-3 h-full">
           <p className="text-xs uppercase tracking-widest text-slate-500">Severity Breakdown</p>
           <div className="grid grid-cols-2 gap-2 text-sm">
             <div className="flex items-center justify-between rounded-xl border border-critical/20 bg-critical/5 px-3 py-2">
@@ -149,7 +149,7 @@ const Results = () => {
             </div>
           </div>
         </GlassCard>
-        <GlassCard className="p-5 space-y-3">
+        <GlassCard className="p-5 space-y-3 h-full">
           <p className="text-xs uppercase tracking-widest text-slate-500">Risk Summary</p>
           <div className="space-y-2 text-sm">
             <div className="flex items-center justify-between py-1 border-b border-white/5">

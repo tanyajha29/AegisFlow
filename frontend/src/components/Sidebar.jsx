@@ -49,8 +49,8 @@ const Sidebar = ({ collapsed, onToggle }) => {
 
   return (
     <aside
-      className={`fixed md:static z-30 h-screen flex flex-col bg-slate-950/90 border-r border-white/[0.08] backdrop-blur-2xl shadow-[0_20px_80px_rgba(0,0,0,0.55)] transition-all duration-300 ${
-        collapsed ? '-translate-x-full md:translate-x-0 md:w-[68px]' : 'translate-x-0 w-64'
+      className={`fixed md:sticky md:top-0 z-30 h-screen flex flex-col bg-slate-950/92 border-r border-white/[0.08] backdrop-blur-2xl shadow-[0_20px_80px_rgba(0,0,0,0.55)] transition-all duration-300 ${
+        collapsed ? '-translate-x-full md:translate-x-0 md:w-[74px]' : 'translate-x-0 w-64'
       }`}
     >
       {/* Brand */}
@@ -67,7 +67,7 @@ const Sidebar = ({ collapsed, onToggle }) => {
       </div>
 
       {/* Main nav */}
-      <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-1">
+      <nav className="flex-1 overflow-y-auto px-3 py-5 space-y-1">
         {!collapsed && (
           <p className="text-[10px] uppercase tracking-[0.25em] text-slate-600 px-3 mb-2">Workspace</p>
         )}
@@ -86,7 +86,7 @@ const Sidebar = ({ collapsed, onToggle }) => {
       </nav>
 
       {/* Bottom area */}
-      <div className="px-3 py-4 border-t border-white/[0.06] space-y-2">
+      <div className="px-3 py-4 border-t border-white/[0.06] space-y-2 mt-auto">
         <button
           onClick={logout}
           title={collapsed ? 'Logout' : undefined}

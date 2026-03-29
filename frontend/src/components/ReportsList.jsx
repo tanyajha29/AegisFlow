@@ -72,12 +72,12 @@ const ReportsList = ({ reports = [], onDownload }) => {
 
         {/* Desktop table */}
         <div className="hidden lg:block">
-          <div className="grid grid-cols-12 gap-4 px-4 py-3 border-b border-border mb-2">
-            <div className="col-span-4 text-xs font-semibold text-slate-400 uppercase">Report</div>
-            <div className="col-span-2 text-xs font-semibold text-slate-400 uppercase">Date</div>
-            <div className="col-span-2 text-xs font-semibold text-slate-400 uppercase">Issues</div>
-            <div className="col-span-2 text-xs font-semibold text-slate-400 uppercase">Format</div>
-            <div className="col-span-2 text-xs font-semibold text-slate-400 uppercase text-right">Actions</div>
+          <div className="grid grid-cols-12 gap-4 px-4 py-3 border-b border-border/80 mb-2 text-xs uppercase tracking-[0.2em] text-slate-500">
+            <div className="col-span-4 font-semibold">Report</div>
+            <div className="col-span-2 font-semibold">Date</div>
+            <div className="col-span-2 font-semibold">Issues</div>
+            <div className="col-span-2 font-semibold">Format</div>
+            <div className="col-span-2 font-semibold text-right">Actions</div>
           </div>
 
           <motion.div variants={containerVariants} initial="hidden" animate="visible" className="space-y-2">
@@ -92,7 +92,7 @@ const ReportsList = ({ reports = [], onDownload }) => {
                   key={r.scan_id}
                   variants={itemVariants}
                   whileHover={{ x: 2 }}
-                  className="grid grid-cols-12 gap-4 p-4 rounded-lg border border-border/60 hover:border-border hover:bg-white/[0.03] transition-all"
+                  className="grid grid-cols-12 gap-4 p-4 rounded-xl border border-white/10 hover:border-accent/30 hover:bg-white/5 transition-all shadow-[0_10px_30px_rgba(0,0,0,0.25)]"
                 >
                   <div className="col-span-4 flex items-center gap-3">
                     <FileText size={18} className="text-accent flex-shrink-0" />
@@ -135,7 +135,7 @@ const ReportsList = ({ reports = [], onDownload }) => {
               <motion.div
                 key={r.scan_id}
                 variants={itemVariants}
-                className="p-4 rounded-lg border border-border/60 hover:border-border hover:bg-card/50 transition-all"
+                className="p-4 rounded-xl border border-white/10 hover:border-accent/30 hover:bg-white/5 transition-all shadow-[0_10px_30px_rgba(0,0,0,0.25)]"
               >
                 <div className="flex items-start gap-3 mb-3">
                   <FileText size={18} className="text-accent flex-shrink-0 mt-0.5" />

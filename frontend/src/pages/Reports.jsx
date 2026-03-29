@@ -3,16 +3,24 @@ import GlassCard from '../components/GlassCard.jsx';
 import api from '../lib/api.js';
 import ReportsList from '../components/ReportsList.jsx';
 import SectionHeader from '../components/SectionHeader.jsx';
+import { Button } from '../components/ui/button';
 
 const Reports = () => {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [showAll, setShowAll] = useState(false);
 
   useEffect(() => {
     api
       .get('/api/reports/history')
-      .then((res) => setRows(res.data.reports || []))
+      .then((res) => {
+        const list = res.data.reports || [];
+        const sorted = [...list].sort(
+          (a, b) => new Date(b.scan_date || 0) - new Date(a.scan_date || 0)
+        );
+        setRows(sorted);
+      })
       .catch((err) => setError(err?.response?.data?.detail || 'Failed to load reports'))
       .finally(() => setLoading(false));
   }, []);
@@ -35,12 +43,27 @@ const Reports = () => {
     }
   };
 
+  const hasToggle = rows.length > 5;
+  const visibleRows = showAll ? rows : rows.slice(0, 5);
+
   return (
     <div className="space-y-6">
       <SectionHeader
         eyebrow="Security Reports"
         title="DristiScan Reports"
         description="Polished PDFs ready for stakeholders. Filter, review, and export without leaving the command center."
+        actions={
+          hasToggle && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="border-white/15 text-slate-100"
+              onClick={() => setShowAll((v) => !v)}
+            >
+              {showAll ? 'Show Less' : 'Show All'}
+            </Button>
+          )
+        }
       />
 
       {error && <GlassCard className="p-3 text-sm text-red-400 border-red-500/40 bg-red-500/10">{error}</GlassCard>}
@@ -48,7 +71,7 @@ const Reports = () => {
       {loading ? (
         <GlassCard className="p-4 text-slate-300">Loading...</GlassCard>
       ) : (
-        <ReportsList reports={rows} onDownload={handleDownload} />
+        <ReportsList reports={visibleRows} onDownload={handleDownload} />
       )}
     </div>
   );

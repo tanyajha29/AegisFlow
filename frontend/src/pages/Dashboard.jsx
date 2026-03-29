@@ -127,16 +127,16 @@ const Dashboard = () => {
       <SectionHeader
         eyebrow="Security Overview"
         title="Command Center"
-        description="Monitor scans, risk posture, and remediation momentum in a single, glassy dashboard."
+        description="Monitor scans, risk posture, and remediation momentum at a glance."
         actions={
-          <>
+          <div className="flex items-center gap-3 ml-auto">
             <Button variant="outline" size="sm" className="border-white/15 text-slate-100">
               Create API Key
             </Button>
-            <Button size="sm" className="shadow-[0_0_24px_rgba(34,211,238,0.35)]">
+            <Button size="sm" className="shadow-[0_0_18px_rgba(34,211,238,0.28)]">
               New Scan
             </Button>
-          </>
+          </div>
         }
       />
 
@@ -173,7 +173,7 @@ const Dashboard = () => {
       </div>
 
       {/* Highlight banner */}
-      <GlassCard tone="accent" className="p-5">
+      <GlassCard tone="accent" className="p-6 min-h-[140px]">
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div className="space-y-1">
             <p className="text-xs uppercase tracking-[0.24em] text-slate-400">Live posture</p>
@@ -194,11 +194,12 @@ const Dashboard = () => {
       </GlassCard>
 
       {/* Charts */}
-      <div className="grid lg:grid-cols-3 gap-4">
-        <ChartCard title="Severity Distribution">
+      <div className="grid lg:grid-cols-3 gap-4 items-start">
+        <ChartCard title="Severity Distribution" className="h-[17rem]">
           <Pie
             data={severityData}
             options={{
+              maintainAspectRatio: false,
               plugins: {
                 legend: {
                   position: 'bottom',
@@ -208,14 +209,15 @@ const Dashboard = () => {
             }}
           />
         </ChartCard>
-        <ChartCard title="Security Score Trend">
-          <Line data={scoreData} options={chartOptions} />
+        <ChartCard title="Security Score Trend" className="h-[17rem]">
+          <Line data={scoreData} options={{ ...chartOptions, maintainAspectRatio: false }} />
         </ChartCard>
-        <ChartCard title="Vulnerability Types">
+        <ChartCard title="Vulnerability Types" className="h-[17rem]">
           <Bar
             data={typeData}
             options={{
               ...chartOptions,
+              maintainAspectRatio: false,
               plugins: { legend: { display: false } },
             }}
           />

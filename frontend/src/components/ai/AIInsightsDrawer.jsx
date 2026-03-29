@@ -1,31 +1,33 @@
 import { useEffect, useMemo, useState } from 'react';
 import { XMarkIcon, ClipboardIcon, CheckIcon } from '@heroicons/react/24/outline';
 import {
-  Sparkles, AlertTriangle, AlertCircle, Info, CheckCircle2,
-  FileCode2, Lock, ExternalLink, RefreshCw, ChevronRight,
+  Sparkles,
+  AlertTriangle,
+  AlertCircle,
+  Info,
+  CheckCircle2,
+  FileCode2,
+  Lock,
+  ExternalLink,
+  RefreshCw,
+  ChevronRight,
 } from 'lucide-react';
 import { explainVulnerability, suggestFix } from '../../lib/rag.js';
 
-// ─── design tokens ───────────────────────────────────────────────────────────
-
 const SEV = {
-  Critical: { badge: 'text-red-300 border-red-500/40 bg-red-500/10',    dot: 'bg-red-500',    icon: AlertTriangle },
-  High:     { badge: 'text-orange-300 border-orange-500/40 bg-orange-500/10', dot: 'bg-orange-500', icon: AlertCircle },
-  Medium:   { badge: 'text-yellow-300 border-yellow-500/40 bg-yellow-500/10', dot: 'bg-yellow-500', icon: Info },
-  Low:      { badge: 'text-green-300 border-green-500/40 bg-green-500/10',  dot: 'bg-green-500',  icon: CheckCircle2 },
+  Critical: { badge: 'text-red-300 border-red-500/40 bg-red-500/10', dot: 'bg-red-500', icon: AlertTriangle },
+  High: { badge: 'text-orange-300 border-orange-500/40 bg-orange-500/10', dot: 'bg-orange-500', icon: AlertCircle },
+  Medium: { badge: 'text-yellow-300 border-yellow-500/40 bg-yellow-500/10', dot: 'bg-yellow-500', icon: Info },
+  Low: { badge: 'text-green-300 border-green-500/40 bg-green-500/10', dot: 'bg-green-500', icon: CheckCircle2 },
 };
 const sevStyle = (s) => SEV[s] || SEV.Medium;
 
-// ─── micro components ────────────────────────────────────────────────────────
-
 const Label = ({ children }) => (
-  <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-500 mb-2">{children}</p>
+  <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500 mb-2">{children}</p>
 );
 
 const Card = ({ children, className = '' }) => (
-  <div className={`rounded-xl border border-white/[0.07] bg-white/[0.03] p-4 space-y-2 ${className}`}>
-    {children}
-  </div>
+  <div className={`rounded-xl border border-white/10 bg-white/[0.03] p-4 space-y-3 ${className}`}>{children}</div>
 );
 
 const RefBadge = ({ label, source }) => (
@@ -36,20 +38,29 @@ const RefBadge = ({ label, source }) => (
   </span>
 );
 
-// ─── Code block with line numbers + highlight ────────────────────────────────
-
 const CodeBlock = ({ code = '', highlightLine = null, variant = 'neutral', title }) => {
   const lines = String(code || '').split('\n');
   const variantCfg = {
-    vulnerable: { border: 'border-red-500/25',     header: 'bg-red-950/40',    dot: 'bg-red-500',    hlRow: 'bg-red-500/20 border-l-2 border-red-500' },
-    fixed:      { border: 'border-emerald-500/25', header: 'bg-emerald-950/40', dot: 'bg-emerald-500', hlRow: 'bg-emerald-500/20 border-l-2 border-emerald-500' },
-    neutral:    { border: 'border-cyan-900/30',    header: 'bg-slate-900/60',   dot: 'bg-cyan-500',   hlRow: 'bg-cyan-500/10' },
+    vulnerable: {
+      border: 'border-red-500/25',
+      header: 'bg-red-950/40',
+      hlRow: 'bg-red-500/20 border-l-2 border-red-500',
+    },
+    fixed: {
+      border: 'border-emerald-500/25',
+      header: 'bg-emerald-950/40',
+      hlRow: 'bg-emerald-500/20 border-l-2 border-emerald-500',
+    },
+    neutral: {
+      border: 'border-cyan-900/30',
+      header: 'bg-slate-900/60',
+      hlRow: 'bg-cyan-500/10',
+    },
   };
   const cfg = variantCfg[variant] || variantCfg.neutral;
 
   return (
     <div className={`rounded-xl border ${cfg.border} overflow-hidden shadow-inner shadow-black/40`}>
-      {/* editor chrome */}
       <div className={`flex items-center justify-between px-3 py-2 border-b border-white/[0.05] ${cfg.header}`}>
         <div className="flex items-center gap-2">
           <span className="flex gap-1.5">
@@ -60,13 +71,12 @@ const CodeBlock = ({ code = '', highlightLine = null, variant = 'neutral', title
           <span className="text-[11px] text-slate-500 font-mono ml-1">{title || 'code'}</span>
         </div>
         {highlightLine && (
-          <span className={`text-[10px] px-2 py-0.5 rounded-md border border-white/10 bg-white/[0.04] text-slate-400 font-mono`}>
+          <span className="text-[10px] px-2 py-0.5 rounded-md border border-white/10 bg-white/[0.04] text-slate-400 font-mono">
             line {highlightLine}
           </span>
         )}
       </div>
-      {/* lines */}
-      <div className="overflow-auto max-h-56 bg-[#080e1a]">
+      <div className="overflow-auto max-h-64 bg-[#080e1a]">
         <table className="min-w-full text-xs font-mono">
           <tbody>
             {lines.map((ln, i) => {
@@ -86,21 +96,15 @@ const CodeBlock = ({ code = '', highlightLine = null, variant = 'neutral', title
   );
 };
 
-// ─── Loading skeleton ────────────────────────────────────────────────────────
-
 const LoadingSkeleton = () => (
   <div className="space-y-3 animate-pulse">
-    <div className="h-28 rounded-xl bg-white/[0.04]" />
-    <div className="h-3 rounded-full bg-white/[0.04] w-2/3" />
-    <div className="h-20 rounded-xl bg-white/[0.04]" />
-    <div className="h-20 rounded-xl bg-white/[0.04]" />
-    <div className="h-16 rounded-xl bg-white/[0.04]" />
-    <div className="h-3 rounded-full bg-white/[0.04] w-1/2" />
     <div className="h-24 rounded-xl bg-white/[0.04]" />
+    <div className="h-3 rounded-full bg-white/[0.04] w-2/3" />
+    <div className="h-14 rounded-xl bg-white/[0.04]" />
+    <div className="h-14 rounded-xl bg-white/[0.04]" />
+    <div className="h-16 rounded-xl bg-white/[0.04]" />
   </div>
 );
-
-// ─── Error block ─────────────────────────────────────────────────────────────
 
 const ErrorBlock = ({ message, onRetry }) => (
   <div className="rounded-xl border border-red-500/25 bg-red-500/[0.06] p-5 space-y-3">
@@ -112,51 +116,63 @@ const ErrorBlock = ({ message, onRetry }) => (
       </div>
     </div>
     {onRetry && (
-      <button type="button" onClick={onRetry}
-        className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/[0.05] border border-white/10 text-xs text-slate-300 hover:bg-white/10 transition">
+      <button
+        type="button"
+        onClick={onRetry}
+        className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/[0.05] border border-white/10 text-xs text-slate-300 hover:bg-white/10 transition"
+      >
         <RefreshCw size={11} /> Retry
       </button>
     )}
   </div>
 );
 
-// ─── Main drawer ─────────────────────────────────────────────────────────────
-
 const AIInsightsDrawer = ({ isOpen, onClose, finding, initialTab = 'explain' }) => {
-  const [activeTab, setActiveTab]       = useState(initialTab);
-  const [explainData, setExplainData]   = useState(null);
-  const [fixData, setFixData]           = useState(null);
+  const [activeTab, setActiveTab] = useState(initialTab);
+  const [explainData, setExplainData] = useState(null);
+  const [fixData, setFixData] = useState(null);
   const [loadingExplain, setLoadingExplain] = useState(false);
-  const [loadingFix, setLoadingFix]     = useState(false);
+  const [loadingFix, setLoadingFix] = useState(false);
   const [errorExplain, setErrorExplain] = useState(null);
-  const [errorFix, setErrorFix]         = useState(null);
-  const [copiedFixed, setCopiedFixed]   = useState(false);
+  const [errorFix, setErrorFix] = useState(null);
+  const [copiedFixed, setCopiedFixed] = useState(false);
 
-  // ── reset on finding change ──────────────────────────────────────────────
   useEffect(() => {
-    setExplainData(null); setFixData(null);
-    setErrorExplain(null); setErrorFix(null);
-    setLoadingExplain(false); setLoadingFix(false);
+    setExplainData(null);
+    setFixData(null);
+    setErrorExplain(null);
+    setErrorFix(null);
+    setLoadingExplain(false);
+    setLoadingFix(false);
     setCopiedFixed(false);
   }, [finding]);
 
   useEffect(() => setActiveTab(initialTab), [initialTab, isOpen]);
 
-  // ── API calls ────────────────────────────────────────────────────────────
   const runExplain = async () => {
     if (!finding || explainData || loadingExplain) return;
-    setLoadingExplain(true); setErrorExplain(null);
-    try { setExplainData(await explainVulnerability(finding)); }
-    catch (err) { setErrorExplain(err.response?.data?.detail || err.message || 'Unknown error'); }
-    finally { setLoadingExplain(false); }
+    setLoadingExplain(true);
+    setErrorExplain(null);
+    try {
+      setExplainData(await explainVulnerability(finding));
+    } catch (err) {
+      setErrorExplain(err.response?.data?.detail || err.message || 'Unknown error');
+    } finally {
+      setLoadingExplain(false);
+    }
   };
 
   const runFix = async () => {
     if (!finding || fixData || loadingFix) return;
-    setLoadingFix(true); setErrorFix(null);
-    try { setFixData(await suggestFix(finding)); }
-    catch (err) { setErrorFix(err.response?.data?.detail || err.message || 'Unknown error'); }
-    finally { setLoadingFix(false); }
+    setLoadingFix(true);
+    setErrorFix(null);
+    try {
+      setFixData(await suggestFix(finding));
+    } catch (err) {
+      setErrorFix(err.response?.data?.detail || err.message || 'Unknown error');
+    } finally {
+      setLoadingFix(false);
+    }
   };
 
   useEffect(() => {
@@ -168,12 +184,14 @@ const AIInsightsDrawer = ({ isOpen, onClose, finding, initialTab = 'explain' }) 
   const handleCopyFixed = () => {
     if (!fixData?.fixed_code) return;
     navigator.clipboard.writeText(fixData.fixed_code).then(
-      () => { setCopiedFixed(true); setTimeout(() => setCopiedFixed(false), 1500); },
+      () => {
+        setCopiedFixed(true);
+        setTimeout(() => setCopiedFixed(false), 1500);
+      },
       () => setCopiedFixed(false),
     );
   };
 
-  // ── severity styling ─────────────────────────────────────────────────────
   const sev = finding?.severity || 'Medium';
   const sevCfg = useMemo(() => sevStyle(sev), [sev]);
   const SevIcon = sevCfg.icon;
@@ -182,64 +200,54 @@ const AIInsightsDrawer = ({ isOpen, onClose, finding, initialTab = 'explain' }) 
   const codeSnippet = finding?.code_snippet || finding?.code || '';
   const fileName = finding?.file_name || finding?.file || 'unknown';
 
-  // ── render explain ───────────────────────────────────────────────────────
   const renderExplain = () => {
     if (loadingExplain) return <LoadingSkeleton />;
-    if (errorExplain)   return <ErrorBlock message={errorExplain} onRetry={runExplain} />;
-    if (!explainData)   return <p className="text-sm text-slate-600 text-center py-8">No explanation available.</p>;
+    if (errorExplain) return <ErrorBlock message={errorExplain} onRetry={runExplain} />;
+    if (!explainData) return <p className="text-sm text-slate-600 text-center py-8">No explanation available.</p>;
 
     return (
-      <div className="space-y-3">
-        {/* vulnerable code preview */}
+      <div className="space-y-4">
         {codeSnippet && (
-          <CodeBlock code={codeSnippet} highlightLine={lineNo} variant="vulnerable"
-            title={`${fileName}${lineNo ? `:${lineNo}` : ''}`} />
+          <CodeBlock code={codeSnippet} highlightLine={lineNo} variant="vulnerable" title={`${fileName}${lineNo ? `:${lineNo}` : ''}`} />
         )}
 
-        {/* grounding pill */}
-        {explainData.retrieved_context_count > 0 && (
-          <div className="flex items-center gap-2 text-[11px] text-slate-500">
-            <span className="h-1.5 w-1.5 rounded-full bg-cyan-500 animate-pulse" />
-            Grounded using {explainData.retrieved_context_count} knowledge source{explainData.retrieved_context_count === 1 ? '' : 's'}
-          </div>
-        )}
-
-        {/* section cards */}
         <Card>
-          <Label>Summary</Label>
+          <Label>What is this issue</Label>
           <p className="text-sm text-slate-200 leading-relaxed">{explainData.summary || 'Not provided.'}</p>
         </Card>
 
-        <Card>
-          <Label>Technical Explanation</Label>
-          <p className="text-sm text-slate-300 leading-relaxed">{explainData.technical_explanation || 'Not provided.'}</p>
-        </Card>
-
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid md:grid-cols-2 gap-3">
           <Card>
-            <Label>Impact</Label>
+            <Label>Why it matters</Label>
             <p className="text-sm text-slate-300 leading-relaxed">{explainData.impact || 'Not provided.'}</p>
           </Card>
           <Card>
-            <Label>Exploit Scenario</Label>
+            <Label>Exploit example</Label>
             <p className="text-sm text-slate-300 leading-relaxed">{explainData.exploit_scenario || 'Not provided.'}</p>
           </Card>
         </div>
 
-        <Card className="border-cyan-500/15 bg-cyan-950/20">
+        <Card>
+          <Label>Root cause</Label>
+          <p className="text-sm text-slate-300 leading-relaxed">
+            {explainData.root_cause || explainData.technical_explanation || 'Not provided.'}
+          </p>
+        </Card>
+
+        <Card className="border-cyan-500/15 bg-cyan-950/15">
           <Label>Recommendation</Label>
           <p className="text-sm text-slate-200 leading-relaxed">{explainData.fix_recommendation || 'Not provided.'}</p>
         </Card>
 
         {explainData.secure_example && (
-          <div>
-            <Label>Secure Example</Label>
+          <div className="space-y-2">
+            <Label>Secure example</Label>
             <CodeBlock code={explainData.secure_example} variant="fixed" title="secure pattern" />
           </div>
         )}
 
         {explainData.references?.length > 0 && (
-          <div>
+          <div className="space-y-2">
             <Label>References</Label>
             <div className="flex flex-wrap gap-2">
               {explainData.references.map((ref, i) => (
@@ -252,32 +260,27 @@ const AIInsightsDrawer = ({ isOpen, onClose, finding, initialTab = 'explain' }) 
     );
   };
 
-  // ── render fix ───────────────────────────────────────────────────────────
   const renderFix = () => {
     if (loadingFix) return <LoadingSkeleton />;
-    if (errorFix)   return <ErrorBlock message={errorFix} onRetry={runFix} />;
-    if (!fixData)   return <p className="text-sm text-slate-600 text-center py-8">No fix suggestion available.</p>;
+    if (errorFix) return <ErrorBlock message={errorFix} onRetry={runFix} />;
+    if (!fixData) return <p className="text-sm text-slate-600 text-center py-8">No fix suggestion available.</p>;
 
     return (
-      <div className="space-y-3">
-        {/* before / after code */}
-        <div className="space-y-2">
-          {codeSnippet && (
-            <CodeBlock code={codeSnippet} highlightLine={lineNo} variant="vulnerable"
-              title={`before · ${fileName}`} />
-          )}
-          {fixData.fixed_code && (
-            <CodeBlock code={fixData.fixed_code} variant="fixed" title="after · secure fix" />
-          )}
-        </div>
-
-        <Card>
-          <Label>Fix Summary</Label>
+      <div className="space-y-4">
+        <Card className="border-emerald-500/20 bg-emerald-950/15">
+          <Label>Fix summary</Label>
           <p className="text-sm text-slate-200 leading-relaxed">{fixData.fix_summary || 'Not provided.'}</p>
         </Card>
 
+        <div className="space-y-3">
+          {codeSnippet && (
+            <CodeBlock code={codeSnippet} highlightLine={lineNo} variant="vulnerable" title={`before · ${fileName}`} />
+          )}
+          {fixData.fixed_code && <CodeBlock code={fixData.fixed_code} variant="fixed" title="after · secure fix" />}
+        </div>
+
         <Card>
-          <Label>Why This Fix Is Safer</Label>
+          <Label>Why fix works</Label>
           <p className="text-sm text-slate-300 leading-relaxed">{fixData.why_this_fix_is_safer || 'Not provided.'}</p>
         </Card>
 
@@ -295,7 +298,6 @@ const AIInsightsDrawer = ({ isOpen, onClose, finding, initialTab = 'explain' }) 
           </Card>
         )}
 
-        {/* copy fixed code */}
         {fixData.fixed_code && (
           <div className="rounded-xl border border-emerald-500/20 bg-emerald-950/20 p-4 space-y-3">
             <div className="flex items-center justify-between">
@@ -303,12 +305,20 @@ const AIInsightsDrawer = ({ isOpen, onClose, finding, initialTab = 'explain' }) 
                 <span className="h-2 w-2 rounded-full bg-emerald-500" />
                 <p className="text-[11px] uppercase tracking-widest text-emerald-500/70">Secure snippet</p>
               </div>
-              <button type="button" onClick={handleCopyFixed}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/[0.05] border border-white/10 text-xs text-slate-300 hover:bg-white/10 transition">
-                {copiedFixed
-                  ? <><CheckIcon className="h-3.5 w-3.5 text-emerald-400" /> Copied!</>
-                  : <><ClipboardIcon className="h-3.5 w-3.5" /> Copy code</>
-                }
+              <button
+                type="button"
+                onClick={handleCopyFixed}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/[0.05] border border-white/10 text-xs text-slate-300 hover:bg-white/10 transition"
+              >
+                {copiedFixed ? (
+                  <>
+                    <CheckIcon className="h-3.5 w-3.5 text-emerald-400" /> Copied!
+                  </>
+                ) : (
+                  <>
+                    <ClipboardIcon className="h-3.5 w-3.5" /> Copy code
+                  </>
+                )}
               </button>
             </div>
             <pre className="text-xs font-mono text-emerald-100/80 whitespace-pre-wrap leading-5 overflow-x-auto max-h-36">
@@ -318,7 +328,7 @@ const AIInsightsDrawer = ({ isOpen, onClose, finding, initialTab = 'explain' }) 
         )}
 
         {fixData.references?.length > 0 && (
-          <div>
+          <div className="space-y-2">
             <Label>References</Label>
             <div className="flex flex-wrap gap-2">
               {fixData.references.map((ref, i) => (
@@ -331,42 +341,82 @@ const AIInsightsDrawer = ({ isOpen, onClose, finding, initialTab = 'explain' }) 
     );
   };
 
-  // ── drawer shell ─────────────────────────────────────────────────────────
+  const renderReferences = () => {
+    const items = [
+      { label: 'CWE', value: finding?.cwe },
+      { label: 'OWASP', value: finding?.owasp },
+      { label: 'CVE', value: finding?.cve },
+    ].filter((i) => i.value);
+
+    const refs = explainData?.references || fixData?.references || [];
+
+    if (items.length === 0 && refs.length === 0) {
+      return <p className="text-sm text-slate-600 text-center py-8">No references available.</p>;
+    }
+
+    return (
+      <div className="space-y-3">
+        {items.length > 0 && (
+          <Card className="flex flex-wrap gap-2">
+            {items.map((it) => (
+              <span
+                key={it.label}
+                className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/[0.04] border border-white/10 text-sm text-slate-200"
+              >
+                <Lock size={12} className="text-cyan-400" />
+                <span className="font-semibold">{it.label}:</span>
+                <span className="font-mono text-slate-300">{it.value}</span>
+              </span>
+            ))}
+          </Card>
+        )}
+
+        {refs.length > 0 && (
+          <Card>
+            <Label>Additional references</Label>
+            <div className="flex flex-wrap gap-2">
+              {refs.map((ref, i) => (
+                <RefBadge key={i} label={ref.label} source={ref.source} />
+              ))}
+            </div>
+          </Card>
+        )}
+      </div>
+    );
+  };
+
   return (
-    <div className={`fixed inset-0 z-50 ${isOpen ? 'pointer-events-auto' : 'pointer-events-none'}`}
-      aria-hidden={!isOpen}>
+    <div className={`fixed inset-0 z-50 ${isOpen ? 'pointer-events-auto' : 'pointer-events-none'}`} aria-hidden={!isOpen}>
+      <div
+        onClick={onClose}
+        className={`absolute inset-0 bg-black/75 backdrop-blur-sm transition-opacity duration-300 ${isOpen ? 'opacity-100' : 'opacity-0'}`}
+      />
 
-      {/* backdrop */}
-      <div onClick={onClose}
-        className={`absolute inset-0 bg-black/75 backdrop-blur-sm transition-opacity duration-300 ${isOpen ? 'opacity-100' : 'opacity-0'}`} />
-
-      {/* panel */}
-      <div className={`absolute right-0 top-0 h-full w-full max-w-[640px] flex flex-col
-        bg-[#060c18] border-l border-cyan-400/[0.08]
+      <div
+        className={`absolute right-0 top-0 h-full w-full max-w-[580px] flex flex-col
+        bg-[#060c18] border-l border-cyan-400/[0.08] overflow-hidden
         shadow-[-20px_0_80px_rgba(6,182,212,0.07)]
         transform transition-transform duration-300 ease-out
-        ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}>
-
-        {/* ── HEADER ── */}
-        <div className="flex-shrink-0 px-6 pt-5 pb-4 border-b border-white/[0.06]
-          bg-gradient-to-b from-slate-900/60 to-transparent">
+        ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}
+      >
+        {/* Header */}
+        <div className="sticky top-0 z-30 px-6 pt-5 pb-4 border-b border-white/[0.06] bg-gradient-to-b from-slate-900/85 to-slate-900/50 backdrop-blur">
           <div className="flex items-start justify-between gap-4">
             <div className="space-y-2.5 min-w-0 flex-1">
-              {/* label row */}
               <div className="flex items-center gap-2">
                 <Sparkles size={13} className="text-cyan-400 flex-shrink-0" />
                 <span className="text-[10px] uppercase tracking-[0.2em] text-cyan-600/80">AI Insights · DristiScan</span>
               </div>
-              {/* title */}
               <h2 className="text-lg font-bold text-white leading-tight truncate">
                 {finding?.name || finding?.type || 'Vulnerability'}
               </h2>
-              {/* file + line */}
               <div className="flex items-center gap-2 text-xs text-slate-500">
                 <FileCode2 size={11} className="flex-shrink-0" />
-                <span className="font-mono truncate">{fileName}{lineNo ? `:${lineNo}` : ''}</span>
+                <span className="font-mono truncate">
+                  {fileName}
+                  {lineNo ? `:${lineNo}` : ''}
+                </span>
               </div>
-              {/* severity badge */}
               <div className="flex items-center gap-2">
                 <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-semibold ${sevCfg.badge}`}>
                   <SevIcon size={11} />
@@ -379,26 +429,33 @@ const AIInsightsDrawer = ({ isOpen, onClose, finding, initialTab = 'explain' }) 
                 )}
               </div>
             </div>
-            {/* close */}
-            <button type="button" onClick={onClose}
-              className="flex-shrink-0 p-2 rounded-xl text-slate-600 hover:text-white hover:bg-white/[0.06] transition mt-0.5">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-shrink-0 p-2 rounded-xl text-slate-600 hover:text-white hover:bg-white/[0.06] transition mt-0.5"
+            >
               <XMarkIcon className="h-5 w-5" />
             </button>
           </div>
         </div>
 
-        {/* ── TABS ── */}
-        <div className="flex-shrink-0 flex items-center gap-1 px-6 py-3 border-b border-white/[0.05] bg-[#060c18]/80">
+        {/* Tabs */}
+        <div className="sticky top-[92px] z-20 flex items-center gap-1 px-6 py-3 border-b border-white/[0.05] bg-[#060c18]/92 backdrop-blur">
           {[
             { id: 'explain', label: 'Explain' },
-            { id: 'fix',     label: 'Suggest Fix' },
+            { id: 'fix', label: 'Suggest Fix' },
+            { id: 'refs', label: 'References' },
           ].map(({ id, label }) => (
-            <button key={id} type="button" onClick={() => setActiveTab(id)}
+            <button
+              key={id}
+              type="button"
+              onClick={() => setActiveTab(id)}
               className={`relative px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
                 activeTab === id
                   ? 'text-white bg-cyan-500/10 border border-cyan-500/25 shadow-[0_0_14px_rgba(6,182,212,0.12)]'
                   : 'text-slate-500 hover:text-slate-300 border border-transparent hover:border-white/[0.08]'
-              }`}>
+              }`}
+            >
               {label}
               {activeTab === id && (
                 <span className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-px h-0.5 w-5 rounded-full bg-cyan-400" />
@@ -407,12 +464,12 @@ const AIInsightsDrawer = ({ isOpen, onClose, finding, initialTab = 'explain' }) 
           ))}
         </div>
 
-        {/* ── SCROLLABLE CONTENT ── */}
-        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-3
-          scrollbar-thin scrollbar-track-transparent scrollbar-thumb-white/10">
-          {activeTab === 'explain' ? renderExplain() : renderFix()}
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-3 scrollbar-thin scrollbar-track-transparent scrollbar-thumb-white/10">
+          {activeTab === 'explain' && renderExplain()}
+          {activeTab === 'fix' && renderFix()}
+          {activeTab === 'refs' && renderReferences()}
         </div>
-
       </div>
     </div>
   );

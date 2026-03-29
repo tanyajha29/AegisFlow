@@ -20,11 +20,18 @@ const History = () => {
   const [entries, setEntries] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [showAll, setShowAll] = useState(false);
 
   useEffect(() => {
     api
       .get('/api/reports/history')
-      .then((res) => setEntries(res.data.reports || []))
+      .then((res) => {
+        const list = res.data.reports || [];
+        const sorted = [...list].sort(
+          (a, b) => new Date(b.scan_date || 0) - new Date(a.scan_date || 0)
+        );
+        setEntries(sorted);
+      })
       .finally(() => setLoading(false));
   }, []);
 
@@ -32,6 +39,8 @@ const History = () => {
     const name = (e.display_file_name || e.file_name || '').toLowerCase();
     return name.includes(search.toLowerCase());
   });
+  const hasToggle = filtered.length > 5;
+  const visible = showAll ? filtered : filtered.slice(0, 5);
 
   return (
     <div className="space-y-6">
@@ -40,15 +49,26 @@ const History = () => {
         title="Recent scans"
         description="Browse previous runs, confirm risk levels, and jump back into any report."
         actions={
-          <div className="relative w-full sm:w-72">
-            <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
-            <input
-              type="text"
-              placeholder="Search by filename..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="pl-9 pr-4 py-2 rounded-xl bg-white/5 border border-white/10 text-sm text-slate-200 placeholder:text-slate-600 focus:outline-none focus:ring-1 focus:ring-accent/40 w-full transition"
-            />
+          <div className="flex items-center gap-3 w-full sm:w-auto">
+            <div className="relative w-full sm:w-72">
+              <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
+              <input
+                type="text"
+                placeholder="Search by filename..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-9 pr-4 py-2 rounded-xl bg-white/5 border border-white/10 text-sm text-slate-200 placeholder:text-slate-600 focus:outline-none focus:ring-1 focus:ring-accent/40 w-full transition"
+              />
+            </div>
+            {hasToggle && (
+              <button
+                type="button"
+                onClick={() => setShowAll((v) => !v)}
+                className="px-4 py-2 rounded-xl border border-white/10 text-sm text-slate-100 hover:border-accent/40 transition"
+              >
+                {showAll ? 'Show Less' : 'Show All'}
+              </button>
+            )}
           </div>
         }
       />
@@ -59,7 +79,7 @@ const History = () => {
             <thead>
               <tr className="border-b border-white/[0.08] bg-white/5">
                 {['Scan ID', 'File', 'Date', 'Risk Score', 'Total Issues', 'Severity'].map((h) => (
-                  <th key={h} className="py-3 px-4 text-[11px] uppercase tracking-[0.28em] text-slate-500 font-medium whitespace-nowrap">
+                  <th key={h} className="py-3 px-4 text-[11px] uppercase tracking-[0.22em] text-slate-500 font-medium whitespace-nowrap">
                     {h}
                   </th>
                 ))}
@@ -80,7 +100,7 @@ const History = () => {
                   </td>
                 </tr>
               ) : (
-                filtered.map((item, idx) => (
+                visible.map((item, idx) => (
                   <motion.tr
                     key={item.scan_id}
                     initial={{ opacity: 0, y: 4 }}
@@ -88,16 +108,16 @@ const History = () => {
                     transition={{ delay: idx * 0.03 }}
                     className="text-slate-300 hover:bg-white/[0.02] transition-colors"
                   >
-                    <td className="py-3 px-4 font-mono text-xs text-slate-500">#{item.scan_id}</td>
-                    <td className="py-3 px-4 font-medium text-white max-w-[180px] truncate">
+                    <td className="py-3.5 px-4 font-mono text-xs text-slate-500">#{item.scan_id}</td>
+                    <td className="py-3.5 px-4 font-medium text-white max-w-[220px] truncate">
                       {item.display_file_name || item.file_name}
                     </td>
-                    <td className="py-3 px-4 text-slate-400 whitespace-nowrap">
+                    <td className="py-3.5 px-4 text-slate-400 whitespace-nowrap">
                       {new Date(item.scan_date).toLocaleString()}
                     </td>
-                    <td className="py-3 px-4 font-semibold text-accent">{item.risk_score}</td>
-                    <td className="py-3 px-4">{item.total_vulnerabilities}</td>
-                    <td className="py-3 px-4">
+                    <td className="py-3.5 px-4 font-semibold text-accent">{item.risk_score}</td>
+                    <td className="py-3.5 px-4">{item.total_vulnerabilities}</td>
+                    <td className="py-3.5 px-4">
                       <SeverityBadge level={item.risk_level?.includes('High') ? 'High' : 'Low'} />
                     </td>
                   </motion.tr>
