@@ -172,27 +172,6 @@ const Dashboard = () => {
         />
       </div>
 
-      {/* Highlight banner */}
-      <GlassCard tone="accent" className="p-6 min-h-[140px]">
-        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          <div className="space-y-1">
-            <p className="text-xs uppercase tracking-[0.24em] text-slate-400">Live posture</p>
-            <p className="text-lg font-semibold text-white">Security score trending at {loading ? '—' : `${avgScore}/100`}</p>
-            <p className="text-sm text-slate-400">
-              Keep momentum by scheduling your next scan and sharing reports with stakeholders.
-            </p>
-          </div>
-          <div className="flex gap-3">
-            <Button variant="outline" size="sm" className="border-white/15 text-slate-100">
-              View Reports
-            </Button>
-            <Button size="sm" className="shadow-[0_0_24px_rgba(34,211,238,0.35)]">
-              Schedule Scan
-            </Button>
-          </div>
-        </div>
-      </GlassCard>
-
       {/* Charts */}
       <div className="grid lg:grid-cols-3 gap-4 items-start">
         <ChartCard title="Severity Distribution" className="h-[17rem]">
