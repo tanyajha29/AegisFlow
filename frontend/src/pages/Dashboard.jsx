@@ -126,7 +126,7 @@ const Dashboard = () => {
     <div className="space-y-8">
       <SectionHeader
         eyebrow="Security Overview"
-        title="Command Center"
+        title="Welcome Back Engineer"
         description="Monitor scans, risk posture, and remediation momentum at a glance."
         actions={
           <div className="flex items-center gap-3 ml-auto">

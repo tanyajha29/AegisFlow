@@ -400,7 +400,7 @@ const AIInsightsDrawer = ({ isOpen, onClose, finding, initialTab = 'explain' }) 
         ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}
       >
         {/* Header */}
-        <div className="sticky top-0 z-30 px-6 pt-5 pb-4 border-b border-white/[0.06] bg-gradient-to-b from-slate-900/85 to-slate-900/50 backdrop-blur">
+        <div className="flex-shrink-0 z-30 px-6 pt-5 pb-4 border-b border-white/[0.06] bg-gradient-to-b from-slate-900/85 to-slate-900/50 backdrop-blur">
           <div className="flex items-start justify-between gap-4">
             <div className="space-y-2.5 min-w-0 flex-1">
               <div className="flex items-center gap-2">
@@ -440,7 +440,7 @@ const AIInsightsDrawer = ({ isOpen, onClose, finding, initialTab = 'explain' }) 
         </div>
 
         {/* Tabs */}
-        <div className="sticky top-[92px] z-20 flex items-center gap-1 px-6 py-3 border-b border-white/[0.05] bg-[#060c18]/92 backdrop-blur">
+        <div className="flex-shrink-0 z-20 flex items-center gap-1 px-6 py-3 border-b border-white/[0.05] bg-[#060c18]/92 backdrop-blur">
           {[
             { id: 'explain', label: 'Explain' },
             { id: 'fix', label: 'Suggest Fix' },

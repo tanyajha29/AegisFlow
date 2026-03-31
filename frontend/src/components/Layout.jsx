@@ -7,13 +7,15 @@ const Layout = ({ children }) => {
   const [collapsed, setCollapsed] = useState(false);
 
   return (
-    <div className="flex min-h-screen bg-navy cyber-grid relative overflow-hidden">
+    <div className="flex h-screen overflow-hidden bg-[#0B1220] cyber-grid">
       <BackgroundFX />
+      {/* Sidebar — fixed height, never scrolls */}
       <Sidebar collapsed={collapsed} onToggle={() => setCollapsed(!collapsed)} />
-      <div className="flex-1 flex flex-col">
+      {/* Main area — scrolls independently */}
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         <Topbar onToggleSidebar={() => setCollapsed(!collapsed)} />
-        <main className="flex-1 px-6 py-6 md:px-10 md:py-8">
-          <div className="max-w-7xl mx-auto space-y-6 animate-fade-in">
+        <main className="flex-1 overflow-y-auto">
+          <div className="max-w-7xl mx-auto px-6 py-7 md:px-10 md:py-8 space-y-6 animate-fade-in">
             {children}
           </div>
         </main>

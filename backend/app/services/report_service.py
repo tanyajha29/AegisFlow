@@ -1,35 +1,22 @@
-"""DristiScan PDF Report Generator --- clean, white, professional audit layout."""
+"""DristiScan PDF Report Generator — professional enterprise layout."""
 from __future__ import annotations
-
 import logging
-import os
 from collections import Counter
 from datetime import datetime
 from io import BytesIO
 from typing import List
 from xml.sax.saxutils import escape
-
 from fastapi import HTTPException, status
 from reportlab.lib import colors
-from reportlab.lib.enums import TA_CENTER, TA_LEFT
+from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import mm
 from reportlab.platypus import (
-    BaseDocTemplate,
-    Frame,
-    HRFlowable,
-    Image,
-    NextPageTemplate,
-    PageBreak,
-    PageTemplate,
-    Paragraph,
-    Spacer,
-    Table,
-    TableStyle,
+    BaseDocTemplate, Frame, HRFlowable, NextPageTemplate, PageBreak,
+    PageTemplate, Paragraph, Spacer, Table, TableStyle,
 )
 from sqlalchemy.orm import Session
-
 from ..models.scan_model import Scan
 from ..schemas.report_schema import FullStructuredReportSchema, Report
 from .risk_engine import risk_level
@@ -37,710 +24,339 @@ from .structured_report import build_structured_report
 
 logger = logging.getLogger("dristi-scan")
 
-# ------ page geometry ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 PW, PH = A4
-ML, MR = 22 * mm, 22 * mm
-MT, MB = 28 * mm, 22 * mm
-CW = PW - ML - MR  # content width
+ML, MR, MT, MB = 20*mm, 20*mm, 22*mm, 22*mm
+CONTENT_W = PW - ML - MR
 
-# ------ color palette (light, print-friendly) ---------------------------------------------------------------------------------------------------------------
-C_BLACK = colors.HexColor("#111827")   # headings
-C_DARK = colors.HexColor("#374151")    # body
-C_GRAY = colors.HexColor("#6B7280")    # secondary
-C_LGRAY = colors.HexColor("#D1D5DB")   # borders
-C_XLGRAY = colors.HexColor("#F9FAFB")  # row tint
-C_WHITE = colors.white
-C_BLUE = colors.HexColor("#1D4ED8")    # accent
-C_BLUE_LT = colors.HexColor("#EFF6FF") # subtle blue tint
-C_BLUE_BD = colors.HexColor("#BFDBFE") # blue border
-
-SEV = {
-    "Critical": colors.HexColor("#DC2626"),
-    "High": colors.HexColor("#EA580C"),
-    "Medium": colors.HexColor("#D97706"),
-    "Low": colors.HexColor("#16A34A"),
-}
-SEV_BG = {
-    "Critical": colors.HexColor("#FEF2F2"),
-    "High": colors.HexColor("#FFF7ED"),
-    "Medium": colors.HexColor("#FFFBEB"),
-    "Low": colors.HexColor("#F0FDF4"),
-}
-
-LOGO_PATH = os.path.join(os.path.dirname(__file__), "..", "..", "..", "docs", "screens", "logo.png")
+C_NAVY=colors.HexColor("#0a1628"); C_NAVY2=colors.HexColor("#0f2040")
+C_CYAN=colors.HexColor("#06b6d4"); C_CYAN_DARK=colors.HexColor("#0e7490")
+C_WHITE=colors.white; C_OFFWHITE=colors.HexColor("#f8fafc")
+C_SLATE=colors.HexColor("#64748b"); C_SLATE_LT=colors.HexColor("#cbd5e1")
+C_TEXT=colors.HexColor("#1e293b"); C_MUTED=colors.HexColor("#94a3b8")
+C_RULE=colors.HexColor("#e2e8f0")
+SEV_COLORS={"Critical":colors.HexColor("#dc2626"),"High":colors.HexColor("#ea580c"),
+            "Medium":colors.HexColor("#ca8a04"),"Low":colors.HexColor("#16a34a")}
+SEV_BG={"Critical":colors.HexColor("#fef2f2"),"High":colors.HexColor("#fff7ed"),
+        "Medium":colors.HexColor("#fefce8"),"Low":colors.HexColor("#f0fdf4")}
+THEME_BG=C_WHITE  # kept for any legacy callers
 
 
-def _resolve_logo():
-    """Return the first existing logo path to keep branding reliable."""
-    candidates = [
-        LOGO_PATH,
-        os.path.join(os.getcwd(), "docs", "screens", "logo.png"),
-        os.path.join(os.path.dirname(__file__), "..", "..", "docs", "screens", "logo.png"),
-    ]
-    for p in candidates:
-        if os.path.exists(p):
-            return os.path.abspath(p)
-    return None
 
-# ------ styles ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-_SC = None
-
-
+_STYLES_CACHE = None
 def _styles():
-    """Lazy style registry so everything shares consistent typography."""
-    global _SC
-    if _SC:
-        return _SC
+    global _STYLES_CACHE
+    if _STYLES_CACHE:
+        return _STYLES_CACHE
+    b = getSampleStyleSheet()
+    def a(n, **kw):
+        if n not in b: b.add(ParagraphStyle(name=n, **kw))
+        return b[n]
+    a("DS_Cover_Brand",fontSize=28,leading=34,textColor=C_WHITE,fontName="Helvetica-Bold",alignment=TA_CENTER)
+    a("DS_Cover_Tag",fontSize=11,leading=15,textColor=C_CYAN,fontName="Helvetica",alignment=TA_CENTER,spaceAfter=6)
+    a("DS_Cover_Title",fontSize=18,leading=24,textColor=C_WHITE,fontName="Helvetica-Bold",alignment=TA_CENTER,spaceBefore=18,spaceAfter=6)
+    a("DS_Cover_Sub",fontSize=11,leading=15,textColor=C_SLATE_LT,fontName="Helvetica",alignment=TA_CENTER,spaceAfter=4)
+    a("DS_H1",fontSize=15,leading=20,textColor=C_NAVY,fontName="Helvetica-Bold",spaceBefore=14,spaceAfter=6)
+    a("DS_H2",fontSize=12,leading=16,textColor=C_NAVY2,fontName="Helvetica-Bold",spaceBefore=10,spaceAfter=4)
+    a("DS_Body",fontSize=9,leading=13,textColor=C_TEXT,fontName="Helvetica",spaceAfter=4)
+    a("DS_BodySmall",fontSize=8,leading=12,textColor=C_SLATE,fontName="Helvetica",spaceAfter=2)
+    a("DS_Code",fontSize=7.5,leading=11,textColor=C_TEXT,fontName="Courier",spaceAfter=4,leftIndent=4,rightIndent=4)
+    a("DS_TOC_Entry",fontSize=9,leading=14,textColor=C_TEXT,fontName="Helvetica",spaceAfter=2)
+    a("DS_Label",fontSize=7,leading=10,textColor=C_MUTED,fontName="Helvetica-Bold",spaceAfter=1)
+    _STYLES_CACHE = b
+    return b
 
-    base = getSampleStyleSheet()
-    add = lambda name, **kw: base.add(ParagraphStyle(name=name, **kw)) if name not in base else None
+def _rule(color=None,thickness=0.5):
+    return HRFlowable(width="100%",thickness=thickness,color=color or C_RULE,spaceAfter=6,spaceBefore=2)
+def _sp(h=6): return Spacer(1,h)
+def _safe(t): return escape(str(t or ""))
 
-    add("Cover_Title", fontSize=26, leading=32, textColor=C_BLACK, fontName="Helvetica-Bold", alignment=TA_CENTER, spaceAfter=8)
-    add("Cover_Tag", fontSize=12, leading=16, textColor=C_BLUE, fontName="Helvetica", alignment=TA_CENTER, spaceAfter=6)
-    add("Cover_Sub", fontSize=10, leading=14, textColor=C_GRAY, fontName="Helvetica", alignment=TA_CENTER, spaceAfter=4)
+def _code_block(code):
+    st=_styles()
+    lines=str(code or "").strip().splitlines()[:40]
+    cell=Paragraph(_safe("\n".join(lines)),st["DS_Code"])
+    t=Table([[cell]],colWidths=[CONTENT_W])
+    t.setStyle(TableStyle([("BACKGROUND",(0,0),(-1,-1),colors.HexColor("#f1f5f9")),
+                            ("BOX",(0,0),(-1,-1),0.5,C_SLATE_LT),("TOPPADDING",(0,0),(-1,-1),6),
+                            ("BOTTOMPADDING",(0,0),(-1,-1),6),("LEFTPADDING",(0,0),(-1,-1),8),
+                            ("RIGHTPADDING",(0,0),(-1,-1),8)]))
+    return t
 
-    add("Sec_Title", fontSize=14, leading=18, textColor=C_BLUE, fontName="Helvetica-Bold", spaceBefore=14, spaceAfter=4)
-    add("Sub_Title", fontSize=11, leading=14, textColor=C_BLACK, fontName="Helvetica-Bold", spaceBefore=8, spaceAfter=3)
-    add("Body", fontSize=9, leading=13, textColor=C_DARK, fontName="Helvetica", spaceAfter=4)
-    add("Body_Small", fontSize=8, leading=12, textColor=C_GRAY, fontName="Helvetica", spaceAfter=2)
-    add("Code", fontSize=8, leading=12, textColor=C_BLACK, fontName="Courier", spaceAfter=4, leftIndent=4)
-    add("Label", fontSize=7, leading=10, textColor=C_GRAY, fontName="Helvetica-Bold", spaceAfter=1, spaceBefore=4)
-    add("TOC_Entry", fontSize=9, leading=14, textColor=C_DARK, fontName="Helvetica", spaceAfter=2)
+def _info_table(rows):
+    st=_styles(); w2=CONTENT_W-55*mm
+    data=[[Paragraph(_safe(k),st["DS_Label"]),Paragraph(_safe(v),st["DS_Body"])] for k,v in rows]
+    t=Table(data,colWidths=[55*mm,w2])
+    t.setStyle(TableStyle([("VALIGN",(0,0),(-1,-1),"TOP"),("TOPPADDING",(0,0),(-1,-1),4),
+                            ("BOTTOMPADDING",(0,0),(-1,-1),4),("LEFTPADDING",(0,0),(-1,-1),0),
+                            ("RIGHTPADDING",(0,0),(-1,-1),6),("LINEBELOW",(0,0),(-1,-2),0.25,C_RULE)]))
+    return t
 
-    _SC = base
-    return base
+def _section_header(title,number=""):
+    st=_styles(); label=f"{number}  {title}" if number else title
+    return [_rule(C_CYAN,1.5),Paragraph(label,st["DS_H1"]),_sp(4)]
 
-
-# ------ helpers ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-def _sp(h=6):
-    return Spacer(1, h)
-
-
-def _safe(text):
-    return escape(str(text or ""))
-
-
-def _rule(width="100%", color=None, thick=0.5):
-    return HRFlowable(width=width, thickness=thick, color=color or C_LGRAY, spaceAfter=6, spaceBefore=2)
-
-
-def section_title(text):
-    """Section heading with thin divider."""
-    st = _styles()
-    return [Paragraph(text, st["Sec_Title"]), _rule(thick=0.75, color=C_BLUE)]
-
-
-def code_block(code):
-    """Light monospace block --- no dark backgrounds."""
-    st = _styles()
-    if not code or not str(code).strip():
-        return Paragraph("N/A", st["Body_Small"])
-
-    lines = str(code).strip().splitlines()[:50]
-    cell = Paragraph(_safe("\n".join(lines)), st["Code"])
-    table = Table([[cell]], colWidths=[CW])
-    table.setStyle(
-        TableStyle(
-            [
-                ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#F5F5F5")),
-                ("BOX", (0, 0), (-1, -1), 0.5, C_LGRAY),
-                ("TOPPADDING", (0, 0), (-1, -1), 7),
-                ("BOTTOMPADDING", (0, 0), (-1, -1), 7),
-                ("LEFTPADDING", (0, 0), (-1, -1), 10),
-                ("RIGHTPADDING", (0, 0), (-1, -1), 10),
-            ]
-        )
-    )
-    return table
-
-
-def info_card(label, value):
-    """Single label/value row with light underline."""
-    st = _styles()
-    table = Table(
-        [[Paragraph(_safe(label), st["Label"]), Paragraph(_safe(value), st["Body"])]],
-        colWidths=[50 * mm, CW - 50 * mm],
-    )
-    table.setStyle(
-        TableStyle(
-            [
-                ("VALIGN", (0, 0), (-1, -1), "TOP"),
-                ("TOPPADDING", (0, 0), (-1, -1), 3),
-                ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
-                ("LEFTPADDING", (0, 0), (-1, -1), 0),
-                ("RIGHTPADDING", (0, 0), (-1, -1), 4),
-                ("LINEBELOW", (0, 0), (-1, -1), 0.25, C_LGRAY),
-            ]
-        )
-    )
-    return table
+def _sev_count_table(critical,high,medium,low):
+    cw=CONTENT_W/4
+    hs=ParagraphStyle("SCH",fontSize=8,leading=10,textColor=C_WHITE,fontName="Helvetica-Bold",alignment=TA_CENTER)
+    vs=ParagraphStyle("SCV",fontSize=20,leading=24,textColor=C_WHITE,fontName="Helvetica-Bold",alignment=TA_CENTER)
+    data=[[Paragraph("CRITICAL",hs),Paragraph("HIGH",hs),Paragraph("MEDIUM",hs),Paragraph("LOW",hs)],
+          [Paragraph(str(critical),vs),Paragraph(str(high),vs),Paragraph(str(medium),vs),Paragraph(str(low),vs)]]
+    t=Table(data,colWidths=[cw,cw,cw,cw])
+    t.setStyle(TableStyle([("BACKGROUND",(0,0),(0,-1),SEV_COLORS["Critical"]),
+                            ("BACKGROUND",(1,0),(1,-1),SEV_COLORS["High"]),
+                            ("BACKGROUND",(2,0),(2,-1),SEV_COLORS["Medium"]),
+                            ("BACKGROUND",(3,0),(3,-1),SEV_COLORS["Low"]),
+                            ("TOPPADDING",(0,0),(-1,-1),8),("BOTTOMPADDING",(0,0),(-1,-1),8),
+                            ("LINEAFTER",(0,0),(2,-1),0.5,C_WHITE)]))
+    return t
 
 
-def sev_badge(sev):
-    """Inline severity badge --- colored text on very light tint."""
-    color = SEV.get(sev, C_GRAY)
-    bg = SEV_BG.get(sev, C_WHITE)
-    style = ParagraphStyle(
-        "SB", fontSize=7, leading=9, textColor=color, fontName="Helvetica-Bold", alignment=TA_CENTER
-    )
-    table = Table([[Paragraph(sev.upper(), style)]], colWidths=[20 * mm])
-    table.setStyle(
-        TableStyle(
-            [
-                ("BACKGROUND", (0, 0), (-1, -1), bg),
-                ("BOX", (0, 0), (-1, -1), 0.5, color),
-                ("TOPPADDING", (0, 0), (-1, -1), 2),
-                ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
-                ("LEFTPADDING", (0, 0), (-1, -1), 4),
-                ("RIGHTPADDING", (0, 0), (-1, -1), 4),
-            ]
-        )
-    )
-    return table
 
-
-def table_style():
-    """Clean table grid with alternating light shading."""
-    return TableStyle(
-        [
-            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#F3F4F6")),
-            ("TEXTCOLOR", (0, 0), (-1, 0), C_BLACK),
-            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-            ("FONTSIZE", (0, 0), (-1, 0), 8),
-            ("ROWBACKGROUNDS", (0, 1), (-1, -1), [C_WHITE, C_XLGRAY]),
-            ("FONTNAME", (0, 1), (-1, -1), "Helvetica"),
-            ("FONTSIZE", (0, 1), (-1, -1), 8),
-            ("GRID", (0, 0), (-1, -1), 0.25, C_LGRAY),
-            ("TOPPADDING", (0, 0), (-1, -1), 5),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
-            ("LEFTPADDING", (0, 0), (-1, -1), 7),
-            ("RIGHTPADDING", (0, 0), (-1, -1), 7),
-            ("VALIGN", (0, 0), (-1, -1), "TOP"),
-        ]
-    )
-
-
-def draw_header(canvas, file_name):
-    """Top-left logo + title, thin underline."""
-    logo = _resolve_logo()
-    x, y = ML, PH - 15 * mm
-    if logo and os.path.exists(logo):
-        try:
-            canvas.drawImage(logo, x, y - 8 * mm, width=10 * mm, height=10 * mm, mask="auto", preserveAspectRatio=True, anchor='sw')
-            x += 12 * mm
-        except Exception as exc:  # pragma: no cover
-            logger.warning("Header logo failed to render: %s", exc)
-
-    canvas.setFont("Helvetica-Bold", 9)
-    canvas.setFillColor(C_BLUE)
-    canvas.drawString(x, y, "DristiScan")
-    canvas.setFont("Helvetica", 8)
-    canvas.setFillColor(C_GRAY)
-    canvas.drawString(x + 28 * mm, y, "Security Analysis Report")
-
-    canvas.setStrokeColor(C_LGRAY)
-    canvas.setLineWidth(0.5)
-    canvas.line(ML, y - 3 * mm, PW - MR, y - 3 * mm)
-
-    fn = (file_name or "")[:55]
-    canvas.setFillColor(C_GRAY)
-    canvas.drawRightString(PW - MR, y, fn)
-
-
-def draw_footer(canvas, page_no, scan_id):
-    """Bottom footer with page number and confidentiality notice."""
-    canvas.setStrokeColor(C_LGRAY)
-    canvas.line(ML, MB + 8 * mm, PW - MR, MB + 8 * mm)
-    canvas.setFont("Helvetica", 7)
-    canvas.setFillColor(C_GRAY)
-    canvas.drawString(ML, MB + 4 * mm, "Confidential - DristiScan")
-    canvas.drawRightString(PW - MR, MB + 4 * mm, f"Page {page_no}")
-
-
-# ------ document chrome ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-class _Doc(BaseDocTemplate):
-    def __init__(self, buf, scan_id, file_name, **kw):
-        super().__init__(buf, **kw)
-        self._sid = scan_id
-        self._fn = file_name
-
-        cover = Frame(ML, MB, CW, PH - MT - MB, id="cover")
-        inner = Frame(ML, MB + 12 * mm, CW, PH - MT - MB - 12 * mm, id="inner")
-
-        self.addPageTemplates(
-            [
-                PageTemplate(id="Cover", frames=[cover], onPage=self._cover_bg),
-                PageTemplate(id="Inner", frames=[inner], onPage=self._inner_chrome),
-            ]
-        )
-
-    def _cover_bg(self, canvas, doc):
+class _DSDocTemplate(BaseDocTemplate):
+    def __init__(self,buffer,scan_id,file_name,**kw):
+        super().__init__(buffer,**kw)
+        self._scan_id=scan_id; self._file_name=file_name
+        cf=Frame(ML,MB,CONTENT_W,PH-MT-MB,id="cover")
+        inf=Frame(ML,MB+10*mm,CONTENT_W,PH-MT-MB-10*mm,id="inner")
+        self.addPageTemplates([PageTemplate(id="Cover",frames=[cf],onPage=self._on_cover),
+                               PageTemplate(id="Inner",frames=[inf],onPage=self._on_inner)])
+    def _on_cover(self,canvas,doc):
         canvas.saveState()
-        canvas.setFillColor(C_WHITE)
-        canvas.rect(0, 0, PW, PH, fill=1, stroke=0)
-        canvas.setFillColor(C_BLUE)
-        canvas.rect(0, 0, PW, 3 * mm, fill=1, stroke=0)  # thin accent bar
+        canvas.setFillColor(C_NAVY); canvas.rect(0,0,PW,PH,fill=1,stroke=0)
+        canvas.setFillColor(C_CYAN); canvas.rect(0,0,PW,8*mm,fill=1,stroke=0)
         canvas.restoreState()
-
-    def _inner_chrome(self, canvas, doc):
+    def _on_inner(self,canvas,doc):
         canvas.saveState()
-        canvas.setFillColor(C_WHITE)
-        canvas.rect(0, 0, PW, PH, fill=1, stroke=0)
-
-        draw_header(canvas, self._fn)
-        draw_footer(canvas, doc.page, self._sid)
+        canvas.setFillColor(C_WHITE); canvas.rect(0,0,PW,PH,fill=1,stroke=0)
+        canvas.setFillColor(C_NAVY); canvas.rect(0,PH-12*mm,PW,12*mm,fill=1,stroke=0)
+        canvas.setFont("Helvetica-Bold",9); canvas.setFillColor(C_CYAN)
+        canvas.drawString(ML,PH-8*mm,"DristiScan")
+        canvas.setFont("Helvetica",7); canvas.setFillColor(C_SLATE_LT)
+        canvas.drawString(ML+28*mm,PH-8*mm,"Security Intelligence Platform")
+        canvas.setFont("Helvetica",7); canvas.setFillColor(C_MUTED)
+        canvas.drawRightString(PW-MR,PH-8*mm,(self._file_name or "")[:60])
+        canvas.setStrokeColor(C_RULE); canvas.setLineWidth(0.5)
+        canvas.line(ML,MB+8*mm,PW-MR,MB+8*mm)
+        canvas.setFont("Helvetica",7); canvas.setFillColor(C_MUTED)
+        canvas.drawString(ML,MB+4*mm,f"Confidential – DristiScan  ·  Scan #{self._scan_id}")
+        canvas.drawRightString(PW-MR,MB+4*mm,f"Page {doc.page}")
         canvas.restoreState()
 
 
-# ------ sections ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-def _cover(scan, structured):
-    st = _styles()
-    summary = structured.summary
 
-    risk_label = summary.overall_risk
-    risk_color = SEV.get(risk_label, C_GRAY)
-    risk_bg = SEV_BG.get(risk_label, C_WHITE)
-    scan_date = getattr(scan, "scan_date", datetime.utcnow())
-    date_str = scan_date.strftime("%B %d, %Y") if hasattr(scan_date, "strftime") else str(scan_date)
-
-    story = [_sp(20)]
-
-    logo = _resolve_logo()
-    if logo and os.path.exists(logo):
-        img = Image(logo, width=40 * mm, height=40 * mm, mask="auto")
-        story.append(Table([[img]], colWidths=[CW], style=[("ALIGN", (0, 0), (-1, -1), "CENTER")]))
-        story.append(_sp(10))
-
-    story += [
-        Paragraph("DristiScan", st["Cover_Title"]),
-        Paragraph("Intelligent DevSecOps Security Platform", st["Cover_Tag"]),
-        Paragraph("Security Analysis Report", st["Cover_Sub"]),
-        _sp(6),
-        _rule(thick=1, color=C_BLUE),
-        _sp(10),
-        Paragraph(
-            _safe(scan.file_name or "Unknown Target"),
-            ParagraphStyle(
-                "CFile",
-                fontSize=13,
-                leading=17,
-                textColor=C_BLACK,
-                fontName="Helvetica-Bold",
-                alignment=TA_CENTER,
-                spaceAfter=4,
-            ),
-        ),
-    ]
-
-    meta = ParagraphStyle(
-        "CMeta", fontSize=9, leading=13, textColor=C_GRAY, fontName="Helvetica", alignment=TA_CENTER, spaceAfter=3
-    )
-    story += [Paragraph(f"Scan ID: #{scan.id}", meta), Paragraph(f"Date: {date_str}", meta), _sp(14)]
-
-    badge_style = ParagraphStyle(
-        "CBadge", fontSize=12, leading=16, textColor=risk_color, fontName="Helvetica-Bold", alignment=TA_CENTER
-    )
-    badge = Table([[Paragraph(f"{risk_label.upper()} RISK", badge_style)]], colWidths=[50 * mm])
-    badge.setStyle(
-        TableStyle(
-            [
-                ("BACKGROUND", (0, 0), (-1, -1), risk_bg),
-                ("BOX", (0, 0), (-1, -1), 1.2, risk_color),
-                ("TOPPADDING", (0, 0), (-1, -1), 7),
-                ("BOTTOMPADDING", (0, 0), (-1, -1), 7),
-                ("LEFTPADDING", (0, 0), (-1, -1), 12),
-                ("RIGHTPADDING", (0, 0), (-1, -1), 12),
-            ]
-        )
-    )
-    story.append(Table([[badge]], colWidths=[CW], style=[("ALIGN", (0, 0), (-1, -1), "CENTER")]))
-    story.append(_sp(16))
-
-    counts = ParagraphStyle(
-        "CCnt", fontSize=9, leading=13, textColor=C_GRAY, fontName="Helvetica", alignment=TA_CENTER
-    )
-    story.append(
-        Paragraph(
-            f"Total Findings: {summary.total} -- Critical: {summary.critical} -- High: {summary.high} -- "
-            f"Medium: {summary.medium} -- Low: {summary.low}",
-            counts,
-        )
-    )
-    story.append(PageBreak())
-    return story
-
+def _cover_page(scan,structured):
+    st=_styles(); s=structured.summary
+    risk_label=s.overall_risk; risk_color=SEV_COLORS.get(risk_label,C_SLATE)
+    scan_date=getattr(scan,"scan_date",datetime.utcnow())
+    date_str=scan_date.strftime("%B %d, %Y") if hasattr(scan_date,"strftime") else str(scan_date)
+    bs=ParagraphStyle("CB2",fontSize=13,leading=17,textColor=C_WHITE,fontName="Helvetica-Bold",alignment=TA_CENTER)
+    bt=Table([[Paragraph(f"{risk_label.upper()} RISK",bs)]],colWidths=[50*mm])
+    bt.setStyle(TableStyle([("BACKGROUND",(0,0),(-1,-1),risk_color),("TOPPADDING",(0,0),(-1,-1),6),
+                             ("BOTTOMPADDING",(0,0),(-1,-1),6),("LEFTPADDING",(0,0),(-1,-1),10),
+                             ("RIGHTPADDING",(0,0),(-1,-1),10)]))
+    ms=ParagraphStyle("CM2",fontSize=9,leading=13,textColor=C_SLATE_LT,fontName="Helvetica",alignment=TA_CENTER,spaceAfter=3)
+    return [_sp(30),Paragraph("DristiScan",st["DS_Cover_Brand"]),
+            Paragraph("Security Intelligence Platform",st["DS_Cover_Tag"]),
+            _sp(20),_rule(C_CYAN_DARK,1),_sp(8),
+            Paragraph("Security Analysis Report",st["DS_Cover_Title"]),_sp(6),
+            Paragraph(_safe(scan.file_name or "Unknown Target"),st["DS_Cover_Sub"]),_sp(16),
+            Table([[bt]],colWidths=[CONTENT_W],style=[("ALIGN",(0,0),(-1,-1),"CENTER")]),
+            _sp(20),_rule(C_NAVY2,0.5),_sp(8),
+            Paragraph(f"Scan ID: #{scan.id}",ms),Paragraph(f"Date: {date_str}",ms),
+            Paragraph(f"Total Findings: {s.total}  ·  Critical: {s.critical}  ·  High: {s.high}  ·  Medium: {s.medium}  ·  Low: {s.low}",ms),
+            PageBreak()]
 
 def _toc(sections):
-    st = _styles()
-    story = [*section_title("Table of Contents"), _sp(6)]
-    for num, title in sections:
-        row = Table(
-            [[Paragraph(num, st["Body_Small"]), Paragraph(title, st["TOC_Entry"])]],
-            colWidths=[12 * mm, CW - 12 * mm],
-        )
-        row.setStyle(
-            TableStyle(
-                [
-                    ("VALIGN", (0, 0), (-1, -1), "TOP"),
-                    ("TOPPADDING", (0, 0), (-1, -1), 3),
-                    ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
-                    ("LINEBELOW", (0, 0), (-1, -1), 0.25, C_LGRAY),
-                ]
-            )
-        )
+    st=_styles(); story=[*_section_header("Table of Contents"),_sp(4)]
+    for num,title in sections:
+        row=Table([[Paragraph(num,st["DS_BodySmall"]),Paragraph(title,st["DS_TOC_Entry"])]],
+                  colWidths=[12*mm,CONTENT_W-12*mm])
+        row.setStyle(TableStyle([("VALIGN",(0,0),(-1,-1),"TOP"),("TOPPADDING",(0,0),(-1,-1),3),
+                                  ("BOTTOMPADDING",(0,0),(-1,-1),3),("LINEBELOW",(0,0),(-1,-1),0.25,C_RULE)]))
         story.append(row)
-    story.append(PageBreak())
-    return story
+    story.append(PageBreak()); return story
 
-
-def _exec_summary(scan, structured):
-    st = _styles()
-    summary = structured.summary
-    rs = structured.risk_score
-    sec_score = max(0.0, 100.0 - rs.score * 10)
-    scan_date = getattr(scan, "scan_date", datetime.utcnow())
-    date_str = scan_date.strftime("%Y-%m-%d %H:%M UTC") if hasattr(scan_date, "strftime") else str(scan_date)
-
-    story = [*section_title("01  Executive Summary"), _sp(8)]
-
-    # Severity grid (borders only, no fills)
-    cw4 = CW / 4
-    header = ParagraphStyle("ESH", fontSize=8, leading=10, textColor=C_GRAY, fontName="Helvetica-Bold", alignment=TA_CENTER)
-    value = ParagraphStyle("ESV", fontSize=22, leading=26, fontName="Helvetica-Bold", alignment=TA_CENTER)
-    data = [
-        [Paragraph("CRITICAL", header), Paragraph("HIGH", header), Paragraph("MEDIUM", header), Paragraph("LOW", header)],
-        [
-            Paragraph(str(summary.critical), ParagraphStyle("ESC", parent=value, textColor=SEV["Critical"])),
-            Paragraph(str(summary.high), ParagraphStyle("ESH2", parent=value, textColor=SEV["High"])),
-            Paragraph(str(summary.medium), ParagraphStyle("ESM", parent=value, textColor=SEV["Medium"])),
-            Paragraph(str(summary.low), ParagraphStyle("ESL", parent=value, textColor=SEV["Low"])),
-        ],
-    ]
-    sev_table = Table(data, colWidths=[cw4] * 4)
-    sev_table.setStyle(
-        TableStyle(
-            [
-                ("BOX", (0, 0), (-1, -1), 0.5, C_LGRAY),
-                ("LINEAFTER", (0, 0), (2, -1), 0.25, C_LGRAY),
-                ("LINEBELOW", (0, 0), (-1, 0), 0.25, C_LGRAY),
-                ("TOPPADDING", (0, 0), (-1, -1), 8),
-                ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
-            ]
-        )
-    )
-    story.append(sev_table)
-    story.append(_sp(10))
-
-    for label, value_text in [
-        ("Total Findings", str(summary.total)),
-        ("Overall Risk", summary.overall_risk),
-        ("Risk Score", f"{rs.score:.1f} / 10"),
-        ("Security Score", f"{sec_score:.0f} / 100"),
-        ("Scan Date", date_str),
-        ("Target", scan.file_name or "Unknown"),
-    ]:
-        story.append(info_card(label, value_text))
+def _executive_summary(scan,structured):
+    st=_styles(); s=structured.summary; rs=structured.risk_score
+    sec_score=max(0.0,100.0-(rs.score*10))
+    scan_date=getattr(scan,"scan_date",datetime.utcnow())
+    date_str=scan_date.strftime("%Y-%m-%d %H:%M UTC") if hasattr(scan_date,"strftime") else str(scan_date)
+    story=[*_section_header("Executive Summary","01")]
+    story.append(_sev_count_table(s.critical,s.high,s.medium,s.low)); story.append(_sp(10))
+    story.append(_info_table([("TOTAL FINDINGS",str(s.total)),("OVERALL RISK",s.overall_risk),
+                               ("RISK SCORE",f"{rs.score:.1f} / 10"),("SECURITY SCORE",f"{sec_score:.0f} / 100"),
+                               ("SCAN DATE",date_str),("TARGET",scan.file_name or "Unknown")]))
     story.append(_sp(6))
-    if rs.reason:
-        story.append(Paragraph(f"<b>Risk Rationale:</b> {_safe(rs.reason)}", st["Body"]))
-    story.append(PageBreak())
-    return story
-
+    if rs.reason: story.append(Paragraph(f"<b>Risk Rationale:</b> {_safe(rs.reason)}",st["DS_Body"]))
+    story.append(PageBreak()); return story
 
 def _scan_scope(scan):
-    st = _styles()
-    story = [*section_title("02  Scan Scope"), _sp(6)]
-    for label, value in [
-        ("Target File / Repo", scan.file_name or "Unknown"),
-        ("Scan Engine", "DristiScan v2 - Rule Engine + AI Agents"),
-        ("Scan Type", "Static Application Security Testing (SAST)"),
-        ("Scan Date", str(getattr(scan, "scan_date", "N/A"))),
-        ("Total Issues", str(getattr(scan, "total_findings", 0))),
-    ]:
-        story.append(info_card(label, value))
+    st=_styles(); story=[*_section_header("Scan Scope","02")]
+    story.append(_info_table([("TARGET FILE / REPO",scan.file_name or "Unknown"),
+                               ("SCAN ENGINE","DristiScan v2 — Rule Engine + AI Agents"),
+                               ("SCAN TYPE","Static Application Security Testing (SAST)"),
+                               ("SCAN DATE",str(getattr(scan,"scan_date","N/A"))),
+                               ("TOTAL ISSUES",str(getattr(scan,"total_findings",0)))]))
     story.append(_sp(4))
-    story.append(
-        Paragraph(
-            "This report covers static analysis of the submitted source code. Dynamic testing, penetration testing, and runtime analysis are outside scope.",
-            st["Body"],
-        )
-    )
-    story.append(PageBreak())
-    return story
+    story.append(Paragraph("This report covers static analysis of the submitted source code. Dynamic testing and runtime analysis are outside scope.",st["DS_Body"]))
+    story.append(PageBreak()); return story
+
 
 
 def _risk_overview(structured):
-    st = _styles()
-    summary = structured.summary
-    story = [*section_title("03  Risk Overview"), _sp(6)]
-    cat_counts = Counter(f.type for f in structured.findings)
+    st=_styles(); s=structured.summary; story=[*_section_header("Risk Overview","03")]
+    cat_counts=Counter(f.type for f in structured.findings)
     if cat_counts:
-        total = max(summary.total, 1)
-        head = ParagraphStyle("ROH", fontSize=8, leading=10, textColor=C_BLACK, fontName="Helvetica-Bold")
-        cell = ParagraphStyle("ROC", fontSize=8, leading=11, textColor=C_DARK, fontName="Helvetica")
-        rows = [[Paragraph(h, head) for h in ["Vulnerability Type", "Count", "% of Total"]]]
-        for vtype, cnt in cat_counts.most_common():
-            rows.append(
-                [Paragraph(_safe(vtype), cell), Paragraph(str(cnt), cell), Paragraph(f"{cnt/total*100:.0f}%", cell)]
-            )
-        table = Table(rows, colWidths=[CW * 0.6, CW * 0.2, CW * 0.2])
-        table.setStyle(table_style())
-        story.append(table)
-    story.append(PageBreak())
-    return story
+        hs=ParagraphStyle("RH",fontSize=8,leading=10,textColor=C_WHITE,fontName="Helvetica-Bold",alignment=TA_CENTER)
+        cs=ParagraphStyle("RC",fontSize=8,leading=11,textColor=C_TEXT,fontName="Helvetica")
+        total=max(s.total,1)
+        rows=[[Paragraph("Vulnerability Type",hs),Paragraph("Count",hs),Paragraph("% of Total",hs)]]
+        for vtype,cnt in cat_counts.most_common():
+            rows.append([Paragraph(_safe(vtype),cs),Paragraph(str(cnt),cs),Paragraph(f"{cnt/total*100:.0f}%",cs)])
+        t=Table(rows,colWidths=[CONTENT_W*0.6,CONTENT_W*0.2,CONTENT_W*0.2])
+        t.setStyle(TableStyle([("BACKGROUND",(0,0),(-1,0),C_NAVY),("ROWBACKGROUNDS",(0,1),(-1,-1),[C_WHITE,C_OFFWHITE]),
+                                ("GRID",(0,0),(-1,-1),0.25,C_RULE),("TOPPADDING",(0,0),(-1,-1),5),
+                                ("BOTTOMPADDING",(0,0),(-1,-1),5),("LEFTPADDING",(0,0),(-1,-1),8),
+                                ("RIGHTPADDING",(0,0),(-1,-1),8),("VALIGN",(0,0),(-1,-1),"MIDDLE")]))
+        story.append(t)
+    story.append(PageBreak()); return story
 
+def _ai_insights_section(structured):
+    st=_styles(); ins=structured.ai_insights; story=[*_section_header("AI Insights","04")]
+    hs=ParagraphStyle("AIH",fontSize=9,leading=13,textColor=C_TEXT,fontName="Helvetica",leftIndent=8,rightIndent=8)
+    for label,value in [("Analysis Summary",ins.summary),("Most Critical Issue",ins.most_critical_issue),
+                         ("Recommended Fix Priority",ins.fix_priority)]:
+        if not value: continue
+        story.append(Paragraph(label.upper(),st["DS_Label"]))
+        cell=Table([[Paragraph(_safe(value),hs)]],colWidths=[CONTENT_W])
+        cell.setStyle(TableStyle([("BACKGROUND",(0,0),(-1,-1),colors.HexColor("#f0f9ff")),
+                                   ("BOX",(0,0),(-1,-1),0.5,C_SLATE_LT),("TOPPADDING",(0,0),(-1,-1),7),
+                                   ("BOTTOMPADDING",(0,0),(-1,-1),7),("LEFTPADDING",(0,0),(-1,-1),10),
+                                   ("RIGHTPADDING",(0,0),(-1,-1),10)]))
+        story.extend([cell,_sp(8)])
+    story.append(PageBreak()); return story
 
-def _ai_insights(structured):
-    st = _styles()
-    ins = structured.ai_insights
-    story = [*section_title("04  AI Insights"), _sp(6)]
-    cell_style = ParagraphStyle(
-        "AIH", fontSize=9, leading=13, textColor=C_DARK, fontName="Helvetica", leftIndent=8, rightIndent=8
-    )
-    for label, value in [
-        ("Analysis Summary", ins.summary),
-        ("Most Critical Issue", ins.most_critical_issue),
-        ("Recommended Fix Priority", ins.fix_priority),
-    ]:
-        if not value:
-            continue
-        story.append(Paragraph(label.upper(), st["Label"]))
-        cell = Table([[Paragraph(_safe(value), cell_style)]], colWidths=[CW])
-        cell.setStyle(
-            TableStyle(
-                [
-                    ("BACKGROUND", (0, 0), (-1, -1), C_BLUE_LT),
-                    ("BOX", (0, 0), (-1, -1), 0.75, C_BLUE_BD),
-                    ("TOPPADDING", (0, 0), (-1, -1), 8),
-                    ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
-                    ("LEFTPADDING", (0, 0), (-1, -1), 10),
-                    ("RIGHTPADDING", (0, 0), (-1, -1), 10),
-                ]
-            )
-        )
-        story.extend([cell, _sp(8)])
-    story.append(PageBreak())
-    return story
-
-
-def _findings(structured):
-    st = _styles()
-    findings = structured.findings
-    story = [*section_title("05  Detailed Findings"), _sp(6)]
+def _detailed_findings(structured):
+    st=_styles(); findings=structured.findings; story=[*_section_header("Detailed Findings","05")]
     if not findings:
-        story.append(Paragraph("No vulnerabilities detected.", st["Body"]))
-        story.append(PageBreak())
-        return story
-
-    seen = set()
-    deduped = []
-    for finding in findings:
-        key = (finding.type, finding.line)
-        if key not in seen:
-            seen.add(key)
-            deduped.append(finding)
-
-    for idx, finding in enumerate(deduped, 1):
-        sev = finding.severity
-        num = ParagraphStyle(f"FN{idx}", fontSize=9, leading=11, textColor=C_GRAY, fontName="Helvetica-Bold")
-        title = ParagraphStyle(f"FT{idx}", fontSize=11, leading=14, textColor=C_BLACK, fontName="Helvetica-Bold")
-        header = Table(
-            [[Paragraph(f"{idx:02d}", num), Paragraph(_safe(finding.type), title), sev_badge(sev)]],
-            colWidths=[10 * mm, CW - 30 * mm, 20 * mm],
-        )
-        header.setStyle(
-            TableStyle(
-                [
-                    ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-                    ("TOPPADDING", (0, 0), (-1, -1), 0),
-                    ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
-                    ("LEFTPADDING", (0, 0), (-1, -1), 0),
-                    ("RIGHTPADDING", (0, 0), (-1, -1), 0),
-                ]
-            )
-        )
-        story.append(header)
-        story.append(_sp(3))
-        if finding.line:
-            story.append(Paragraph(f"File / Line: {finding.line}", st["Body_Small"]))
-        story.append(_rule(thick=0.25))
-        story.append(_sp(3))
-
-        for label, value in [
-            ("Description", finding.description),
-            ("Impact", finding.impact),
-            ("Attack Example", finding.attack_example),
-            ("Recommendation", finding.recommendation),
-            ("OWASP / CWE / CVE", " / ".join(filter(None, [
-                getattr(finding, "owasp", None),
-                getattr(finding, "cwe", None),
-                getattr(finding, "cve", None),
-            ])) or "N/A"),
-        ]:
-            if value and str(value).strip():
-                story.append(Paragraph(label.upper(), st["Label"]))
-                story.append(Paragraph(_safe(value), st["Body"]))
-                story.append(_sp(2))
-
-        if finding.code and str(finding.code).strip():
-            story.append(Paragraph("AFFECTED CODE", st["Label"]))
-            story.append(code_block(finding.code))
-            story.append(_sp(3))
-        if finding.fix_code and str(finding.fix_code).strip():
-            story.append(Paragraph("SECURE CODE EXAMPLE", st["Label"]))
-            story.append(code_block(finding.fix_code))
-            story.append(_sp(3))
-
-        story.append(_rule(thick=0.5, color=C_LGRAY))
-        story.append(_sp(8))
-
-    story.append(PageBreak())
-    return story
+        story.append(Paragraph("No vulnerabilities detected.",st["DS_Body"])); story.append(PageBreak()); return story
+    seen=set(); deduped=[]
+    for f in findings:
+        key=(f.type,f.line)
+        if key not in seen: seen.add(key); deduped.append(f)
+    for idx,finding in enumerate(deduped,1):
+        sev=finding.severity; sc=SEV_COLORS.get(sev,C_SLATE)
+        ns=ParagraphStyle("FN",fontSize=8,leading=10,textColor=C_WHITE,fontName="Helvetica-Bold")
+        ts=ParagraphStyle("FT",fontSize=10,leading=13,textColor=C_WHITE,fontName="Helvetica-Bold")
+        ss=ParagraphStyle("FS",fontSize=8,leading=10,textColor=C_WHITE,fontName="Helvetica-Bold",alignment=TA_RIGHT)
+        hr=Table([[Paragraph(f"{idx:02d}",ns),Paragraph(_safe(finding.type),ts),Paragraph(sev.upper(),ss)]],
+                 colWidths=[10*mm,CONTENT_W-30*mm,20*mm])
+        hr.setStyle(TableStyle([("BACKGROUND",(0,0),(-1,-1),sc),("TOPPADDING",(0,0),(-1,-1),6),
+                                  ("BOTTOMPADDING",(0,0),(-1,-1),6),("LEFTPADDING",(0,0),(-1,-1),8),
+                                  ("RIGHTPADDING",(0,0),(-1,-1),8),("VALIGN",(0,0),(-1,-1),"MIDDLE")]))
+        story.append(hr)
+        if finding.line: story.append(Paragraph(f"Line {finding.line}",st["DS_BodySmall"]))
+        story.append(_sp(4))
+        for label,value in [("DESCRIPTION",finding.description),("IMPACT",finding.impact),
+                              ("ATTACK EXAMPLE",finding.attack_example),("RECOMMENDATION",finding.recommendation)]:
+            if value and value.strip():
+                story.append(Paragraph(label,st["DS_Label"])); story.append(Paragraph(_safe(value),st["DS_Body"])); story.append(_sp(3))
+        if finding.code and finding.code.strip():
+            story.append(Paragraph("AFFECTED CODE",st["DS_Label"])); story.append(_code_block(finding.code)); story.append(_sp(3))
+        if finding.fix_code and finding.fix_code.strip():
+            story.append(Paragraph("SECURE CODE EXAMPLE",st["DS_Label"])); story.append(_code_block(finding.fix_code)); story.append(_sp(3))
+        story.append(_rule(C_RULE)); story.append(_sp(6))
+    story.append(PageBreak()); return story
 
 
-def _secrets(structured):
-    st = _styles()
-    secrets = [
-        f
-        for f in structured.findings
-        if any(key in f.type.lower() for key in ("secret", "key", "credential", "token", "password"))
-    ]
-    if not secrets:
-        return []
 
-    story = [*section_title("06  Secret Exposure"), _sp(4)]
-    story.append(Paragraph(f"{len(secrets)} hardcoded secret(s) detected. Rotate all exposed credentials immediately.", st["Body"]))
+def _secret_section(structured):
+    st=_styles()
+    secrets=[f for f in structured.findings if any(k in f.type.lower() for k in ("secret","key","credential","token","password"))]
+    if not secrets: return []
+    story=[*_section_header("Secret Exposure","06")]
+    story.append(Paragraph(f"{len(secrets)} hardcoded secret(s) detected. Rotate all exposed credentials immediately.",st["DS_Body"]))
     story.append(_sp(6))
     for sf in secrets:
-        story.append(Paragraph(f"> {_safe(sf.type)}", st["Sub_Title"]))
-        for label, value in [
-            ("Severity", sf.severity),
-            ("Line", str(sf.line) if sf.line else "N/A"),
-            ("Recommendation", sf.recommendation or "Rotate and move to a secrets manager."),
-        ]:
-            story.append(info_card(label, value))
+        story.append(Paragraph(f"▸  {_safe(sf.type)}",st["DS_H2"]))
+        story.append(_info_table([("SEVERITY",sf.severity),("LINE",str(sf.line) if sf.line else "N/A"),
+                                   ("RECOMMENDATION",sf.recommendation or "Rotate and move to secrets manager.")]))
         story.append(_sp(6))
-    story.append(PageBreak())
-    return story
+    story.append(PageBreak()); return story
 
-
-def _deps(structured):
-    st = _styles()
-    deps = [f for f in structured.findings if any(key in f.type.lower() for key in ("depend", "package", "library", "cve"))]
-    if not deps:
-        return []
-
-    story = [*section_title("07  Dependency Vulnerabilities"), _sp(4)]
-    head = ParagraphStyle("DH", fontSize=8, leading=10, textColor=C_BLACK, fontName="Helvetica-Bold")
-    cell = ParagraphStyle("DC", fontSize=8, leading=11, textColor=C_DARK, fontName="Helvetica")
-    rows = [[Paragraph(h, head) for h in ["Package / Type", "Severity", "Description", "Fix"]]]
-    widths = [CW * 0.25, CW * 0.12, CW * 0.38, CW * 0.25]
+def _dependency_section(structured):
+    st=_styles()
+    deps=[f for f in structured.findings if any(k in f.type.lower() for k in ("depend","package","library","cve"))]
+    if not deps: return []
+    story=[*_section_header("Dependency Vulnerabilities","07")]
+    hs=ParagraphStyle("DH",fontSize=8,leading=10,textColor=C_WHITE,fontName="Helvetica-Bold",alignment=TA_CENTER)
+    cs=ParagraphStyle("DC",fontSize=8,leading=11,textColor=C_TEXT,fontName="Helvetica")
+    rows=[[Paragraph(h,hs) for h in ["Package / Type","Severity","Description","Fix"]]]
+    cw=[CONTENT_W*0.25,CONTENT_W*0.12,CONTENT_W*0.38,CONTENT_W*0.25]
     for dep in deps:
-        rows.append(
-            [
-                Paragraph(_safe(dep.type), cell),
-                Paragraph(_safe(dep.severity), cell),
-                Paragraph(_safe(dep.description[:120]), cell),
-                Paragraph(_safe(dep.recommendation[:80]), cell),
-            ]
-        )
-    table = Table(rows, colWidths=widths)
-    table.setStyle(table_style())
-    story.append(table)
-    story.append(PageBreak())
+        rows.append([Paragraph(_safe(dep.type),cs),Paragraph(_safe(dep.severity),cs),
+                     Paragraph(_safe(dep.description[:120]),cs),Paragraph(_safe(dep.recommendation[:80]),cs)])
+    t=Table(rows,colWidths=cw)
+    t.setStyle(TableStyle([("BACKGROUND",(0,0),(-1,0),C_NAVY),("ROWBACKGROUNDS",(0,1),(-1,-1),[C_WHITE,C_OFFWHITE]),
+                            ("GRID",(0,0),(-1,-1),0.25,C_RULE),("TOPPADDING",(0,0),(-1,-1),5),
+                            ("BOTTOMPADDING",(0,0),(-1,-1),5),("LEFTPADDING",(0,0),(-1,-1),6),
+                            ("RIGHTPADDING",(0,0),(-1,-1),6),("VALIGN",(0,0),(-1,-1),"TOP")]))
+    story.append(t); story.append(PageBreak()); return story
+
+def _risk_prioritization(structured):
+    st=_styles(); story=[*_section_header("Risk Prioritization","08")]
+    story.append(Paragraph("Address findings in the following order based on severity:",st["DS_Body"])); story.append(_sp(6))
+    ordered=sorted(structured.findings,key=lambda f:["Critical","High","Medium","Low"].index(f.severity) if f.severity in ["Critical","High","Medium","Low"] else 99)
+    for rank,finding in enumerate(ordered[:15],1):
+        sc=SEV_COLORS.get(finding.severity,C_SLATE)
+        rs2=ParagraphStyle("RP",fontSize=9,leading=11,textColor=C_WHITE,fontName="Helvetica-Bold",alignment=TA_CENTER)
+        rt=ParagraphStyle("RT",fontSize=9,leading=12,textColor=C_TEXT,fontName="Helvetica-Bold")
+        rv=ParagraphStyle("RV",fontSize=8,leading=10,textColor=C_WHITE,fontName="Helvetica-Bold",alignment=TA_CENTER)
+        row=Table([[Paragraph(str(rank),rs2),Paragraph(_safe(finding.type),rt),Paragraph(finding.severity,rv)]],
+                  colWidths=[10*mm,CONTENT_W-30*mm,20*mm])
+        row.setStyle(TableStyle([("BACKGROUND",(0,0),(0,-1),C_NAVY),("BACKGROUND",(2,0),(2,-1),sc),
+                                   ("BACKGROUND",(1,0),(1,-1),C_OFFWHITE),("TOPPADDING",(0,0),(-1,-1),5),
+                                   ("BOTTOMPADDING",(0,0),(-1,-1),5),("LEFTPADDING",(0,0),(-1,-1),6),
+                                   ("RIGHTPADDING",(0,0),(-1,-1),6),("VALIGN",(0,0),(-1,-1),"MIDDLE"),
+                                   ("LINEBELOW",(0,0),(-1,-1),0.25,C_RULE)]))
+        story.append(row)
+    story.append(PageBreak()); return story
+
+def _recommendations_section(structured):
+    st=_styles(); story=[*_section_header("Recommendations","09")]
+    recs=list({f.recommendation for f in structured.findings if f.recommendation})
+    if not recs: story.append(Paragraph("No specific recommendations available.",st["DS_Body"]))
+    for i,rec in enumerate(recs[:20],1):
+        story.append(Paragraph(f"{i}.  {_safe(rec)}",st["DS_Body"])); story.append(_sp(3))
+    story.append(PageBreak()); return story
+
+def _compliance_section(structured):
+    st=_styles(); story=[*_section_header("Compliance & References","10")]
+    owasp_map={"SQL Injection":"A03:2021 – Injection","Command Injection":"A03:2021 – Injection",
+               "XSS":"A03:2021 – Injection","Hardcoded":"A02:2021 – Cryptographic Failures",
+               "Secret":"A02:2021 – Cryptographic Failures","Path Traversal":"A01:2021 – Broken Access Control",
+               "Dependency":"A06:2021 – Vulnerable Components"}
+    hs=ParagraphStyle("CH",fontSize=8,leading=10,textColor=C_WHITE,fontName="Helvetica-Bold")
+    cs=ParagraphStyle("CC",fontSize=8,leading=11,textColor=C_TEXT,fontName="Helvetica")
+    rows=[[Paragraph(h,hs) for h in ["Finding Type","OWASP Top 10","CWE Reference"]]]
+    cw=[CONTENT_W*0.35,CONTENT_W*0.40,CONTENT_W*0.25]; seen_types=set()
+    for f in structured.findings:
+        if f.type in seen_types: continue
+        seen_types.add(f.type)
+        owasp=next((v for k,v in owasp_map.items() if k.lower() in f.type.lower()),"—")
+        rows.append([Paragraph(_safe(f.type),cs),Paragraph(owasp,cs),Paragraph("—",cs)])
+    t=Table(rows,colWidths=cw)
+    t.setStyle(TableStyle([("BACKGROUND",(0,0),(-1,0),C_NAVY),("ROWBACKGROUNDS",(0,1),(-1,-1),[C_WHITE,C_OFFWHITE]),
+                            ("GRID",(0,0),(-1,-1),0.25,C_RULE),("TOPPADDING",(0,0),(-1,-1),5),
+                            ("BOTTOMPADDING",(0,0),(-1,-1),5),("LEFTPADDING",(0,0),(-1,-1),8),
+                            ("RIGHTPADDING",(0,0),(-1,-1),8),("VALIGN",(0,0),(-1,-1),"MIDDLE")]))
+    story.append(t); story.append(_sp(8))
+    story.append(Paragraph("References: OWASP Top 10 (2021) · NIST NVD · MITRE CWE · CVE Database",st["DS_BodySmall"]))
     return story
 
 
-def _prioritization(structured):
-    st = _styles()
-    story = [*section_title("08  Risk Prioritization"), _sp(4)]
-    story.append(Paragraph("Address findings in the following order:", st["Body"]))
-    story.append(_sp(6))
 
-    ordered = sorted(
-        structured.findings,
-        key=lambda f: ["Critical", "High", "Medium", "Low"].index(f.severity)
-        if f.severity in ["Critical", "High", "Medium", "Low"]
-        else 99,
-    )
-    head = ParagraphStyle("PH", fontSize=8, leading=10, textColor=C_BLACK, fontName="Helvetica-Bold")
-    cell = ParagraphStyle("PC", fontSize=8, leading=11, textColor=C_DARK, fontName="Helvetica")
-    rows = [[Paragraph(h, head) for h in ["#", "Vulnerability", "Severity"]]]
-    widths = [10 * mm, CW - 30 * mm, 20 * mm]
-    for rank, finding in enumerate(ordered[:15], 1):
-        rows.append(
-            [
-                Paragraph(str(rank), cell),
-                Paragraph(_safe(finding.type), cell),
-                Paragraph(
-                    finding.severity,
-                    ParagraphStyle(
-                        f"PS{rank}",
-                        fontSize=8,
-                        leading=10,
-                        textColor=SEV.get(finding.severity, C_GRAY),
-                        fontName="Helvetica-Bold",
-                    ),
-                ),
-            ]
-        )
-    table = Table(rows, colWidths=widths)
-    table.setStyle(table_style())
-    story.append(table)
-    story.append(PageBreak())
-    return story
+# ── public API — unchanged signatures ────────────────────────────────────────
 
-
-def _recommendations(structured):
-    st = _styles()
-    story = [*section_title("09  Recommendations"), _sp(4)]
-    recs = list({f.recommendation for f in structured.findings if f.recommendation})
-    if not recs:
-        story.append(Paragraph("No specific recommendations available.", st["Body"]))
-    for idx, rec in enumerate(recs[:20], 1):
-        story.append(Paragraph(f"{idx}.  {_safe(rec)}", st["Body"]))
-        story.append(_sp(3))
-    story.append(PageBreak())
-    return story
-
-
-def _compliance(structured):
-    st = _styles()
-    story = [*section_title("10  Compliance & References"), _sp(4)]
-    owasp_map = {
-        "sql injection": "A03:2021 - Injection",
-        "command injection": "A03:2021 - Injection",
-        "xss": "A03:2021 - Injection",
-        "hardcoded": "A02:2021 - Cryptographic Failures",
-        "secret": "A02:2021 - Cryptographic Failures",
-        "path traversal": "A01:2021 - Broken Access Control",
-        "depend": "A06:2021 - Vulnerable Components",
-    }
-    head = ParagraphStyle("CH", fontSize=8, leading=10, textColor=C_BLACK, fontName="Helvetica-Bold")
-    cell = ParagraphStyle("CC", fontSize=8, leading=11, textColor=C_DARK, fontName="Helvetica")
-    rows = [[Paragraph(h, head) for h in ["Finding Type", "OWASP Top 10", "CWE Reference"]]]
-    widths = [CW * 0.35, CW * 0.40, CW * 0.25]
-    seen = set()
-    for finding in structured.findings:
-        if finding.type in seen:
-            continue
-        seen.add(finding.type)
-        owasp = next((val for key, val in owasp_map.items() if key in finding.type.lower()), "-")
-        rows.append([Paragraph(_safe(finding.type), cell), Paragraph(owasp, cell), Paragraph("-", cell)])
-    table = Table(rows, colWidths=widths)
-    table.setStyle(table_style())
-    story.append(table)
-    story.append(_sp(8))
-    story.append(
-        Paragraph(
-            "References: OWASP Top 10 (2021) -- NIST NVD -- MITRE CWE -- CVE Database",
-            st["Body_Small"],
-        )
-    )
-    return story
-
-
-# ------ public API (signatures unchanged) ----------------------------------------------------------------------------------------------------------------------------
 def _get_scan_or_404(db: Session, scan_id: int) -> Scan:
     scan = db.query(Scan).filter(Scan.id == scan_id).first()
     if not scan:
@@ -751,19 +367,12 @@ def _get_scan_or_404(db: Session, scan_id: int) -> Scan:
 def get_report(db: Session, scan_id: int) -> Report:
     scan = _get_scan_or_404(db, scan_id)
     return Report(
-        scan_id=scan.id,
-        file_name=scan.file_name,
-        display_file_name=scan.file_name,
-        scan_date=scan.scan_date,
-        total_vulnerabilities=getattr(scan, "total_findings", 0),
-        risk_score=getattr(scan, "risk_score", 0.0),
-        security_score=getattr(scan, "security_score", 0.0),
-        critical_count=getattr(scan, "critical_count", 0),
-        high_count=getattr(scan, "high_count", 0),
-        medium_count=getattr(scan, "medium_count", 0),
-        low_count=getattr(scan, "low_count", 0),
-        risk_level=risk_level(scan.risk_score),
-        vulnerabilities=list(scan.vulnerabilities),
+        scan_id=scan.id, file_name=scan.file_name, display_file_name=scan.file_name,
+        scan_date=scan.scan_date, total_vulnerabilities=getattr(scan,"total_findings",0),
+        risk_score=getattr(scan,"risk_score",0.0), security_score=getattr(scan,"security_score",0.0),
+        critical_count=getattr(scan,"critical_count",0), high_count=getattr(scan,"high_count",0),
+        medium_count=getattr(scan,"medium_count",0), low_count=getattr(scan,"low_count",0),
+        risk_level=risk_level(scan.risk_score), vulnerabilities=list(scan.vulnerabilities),
     )
 
 
@@ -775,48 +384,23 @@ def get_structured_report(db: Session, scan_id: int) -> FullStructuredReportSche
 def get_report_pdf(db: Session, scan_id: int) -> bytes:
     scan = _get_scan_or_404(db, scan_id)
     structured = build_structured_report(scan)
-
     buffer = BytesIO()
-    doc = _Doc(
-        buffer,
-        scan_id=str(scan.id),
-        file_name=scan.file_name or "",
-        pagesize=A4,
-        leftMargin=ML,
-        rightMargin=MR,
-        topMargin=MT,
-        bottomMargin=MB,
-    )
-
-    toc = [
-        ("01", "Executive Summary"),
-        ("02", "Scan Scope"),
-        ("03", "Risk Overview"),
-        ("04", "AI Insights"),
-        ("05", "Detailed Findings"),
-        ("06", "Secret Exposure"),
-        ("07", "Dependency Vulnerabilities"),
-        ("08", "Risk Prioritization"),
-        ("09", "Recommendations"),
-        ("10", "Compliance & References"),
+    doc = _DSDocTemplate(buffer, scan_id=str(scan.id), file_name=scan.file_name or "",
+                         pagesize=A4, leftMargin=ML, rightMargin=MR, topMargin=MT, bottomMargin=MB)
+    toc_entries = [
+        ("01","Executive Summary"),("02","Scan Scope"),("03","Risk Overview"),
+        ("04","AI Insights"),("05","Detailed Findings"),("06","Secret Exposure"),
+        ("07","Dependency Vulnerabilities"),("08","Risk Prioritization"),
+        ("09","Recommendations"),("10","Compliance & References"),
     ]
-
     story: List = [
-        NextPageTemplate("Cover"),
-        *_cover(scan, structured),
-        NextPageTemplate("Inner"),
-        *_toc(toc),
-        *_exec_summary(scan, structured),
-        *_scan_scope(scan),
-        *_risk_overview(structured),
-        *_ai_insights(structured),
-        *_findings(structured),
-        *_secrets(structured),
-        *_deps(structured),
-        *_prioritization(structured),
-        *_recommendations(structured),
-        *_compliance(structured),
+        NextPageTemplate("Cover"), *_cover_page(scan, structured),
+        NextPageTemplate("Inner"), *_toc(toc_entries),
+        *_executive_summary(scan, structured), *_scan_scope(scan),
+        *_risk_overview(structured), *_ai_insights_section(structured),
+        *_detailed_findings(structured), *_secret_section(structured),
+        *_dependency_section(structured), *_risk_prioritization(structured),
+        *_recommendations_section(structured), *_compliance_section(structured),
     ]
-
     doc.build(story)
     return buffer.getvalue()
