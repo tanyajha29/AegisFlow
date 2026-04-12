@@ -69,3 +69,7 @@ class Report(BaseModel):
 
 class ReportHistory(BaseModel):
     reports: List[Report]
+
+
+class ProtectedReportRequest(BaseModel):
+    passphrase: str

@@ -5,11 +5,14 @@ from starlette.responses import StreamingResponse
 from ..database import get_db
 from ..middleware.auth_middleware import get_current_user
 from ..models.scan_model import Scan
-from ..schemas.report_schema import FullStructuredReportSchema, Report, ReportHistory
+from ..schemas.report_schema import FullStructuredReportSchema, Report, ReportHistory, ProtectedReportRequest
 from ..utils.file_handler import strip_generated_prefix
 from ..services.report_service import get_report, get_report_pdf, get_structured_report
 from ..services.mfa_service import verify_user_otp
 from ..services.risk_engine import risk_level
+import logging
+
+logger = logging.getLogger("dristi-scan")
 
 
 router = APIRouter(prefix="/reports", tags=["reports"])
@@ -47,7 +50,7 @@ def history(db: Session = Depends(get_db), current_user=Depends(get_current_user
 
 @router.get("/{scan_id}", response_model=FullStructuredReportSchema)
 def fetch_report(scan_id: int, db: Session = Depends(get_db), current_user=Depends(get_current_user)):
-    return get_structured_report(db, scan_id)
+    return get_structured_report(db, scan_id, user_id=current_user.id)
 
 
 @router.get("/{scan_id}/pdf")
@@ -66,11 +69,52 @@ def fetch_report_pdf(
                 detail="OTP required to access this report",
             )
         verify_user_otp(db, current_user, otp_value)
-    report = get_report(db, scan_id)
-    pdf_bytes = get_report_pdf(db, scan_id)
+    report = get_report(db, scan_id, user_id=current_user.id)
+    pdf_bytes = get_report_pdf(db, scan_id, user_id=current_user.id)
     filename = f"DristiScan_Report_{report.file_name}_{report.scan_date.strftime('%Y%m%d')}.pdf"
     return StreamingResponse(
         iter([pdf_bytes]),
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename=\"{filename}\"'},
+    )
+
+
+@router.post("/{scan_id}/protected-pdf")
+def download_protected_report(
+    scan_id: int,
+    payload: ProtectedReportRequest,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    if not payload.passphrase or len(payload.passphrase) < 6:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Passphrase is required")
+
+    # ownership enforcement
+    report = get_report(db, scan_id, user_id=current_user.id)
+    logger.info("Protected report download requested: scan=%s user=%s", scan_id, current_user.id)
+
+    # generate base PDF
+    pdf_bytes = get_report_pdf(db, scan_id, user_id=current_user.id)
+
+    # protect PDF using passphrase (PyPDF2 user password)
+    try:
+        from PyPDF2 import PdfReader, PdfWriter
+        import io
+        reader = PdfReader(io.BytesIO(pdf_bytes))
+        writer = PdfWriter()
+        for page in reader.pages:
+            writer.add_page(page)
+        writer.encrypt(user_password=payload.passphrase, owner_password=None)
+        out_buf = io.BytesIO()
+        writer.write(out_buf)
+        protected_bytes = out_buf.getvalue()
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.error("Protected PDF generation failed for scan %s: %s", scan_id, exc)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Could not protect report")
+
+    filename = f"DristiScan_Report_{report.file_name}_{report.scan_date.strftime('%Y%m%d')}_protected.pdf"
+    return StreamingResponse(
+        iter([protected_bytes]),
         media_type="application/pdf",
         headers={"Content-Disposition": f'attachment; filename=\"{filename}\"'},
     )

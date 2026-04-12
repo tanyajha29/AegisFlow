@@ -394,15 +394,20 @@ def _compliance_section(structured):
 
 # ── public API — unchanged signatures ────────────────────────────────────────
 
-def _get_scan_or_404(db: Session, scan_id: int) -> Scan:
-    scan = db.query(Scan).filter(Scan.id == scan_id).first()
+def _get_scan_or_404(db: Session, scan_id: int, user_id: int | None = None) -> Scan:
+    query = db.query(Scan).filter(Scan.id == scan_id)
+    if user_id is not None:
+        query = query.filter(Scan.user_id == user_id)
+    scan = query.first()
     if not scan:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Scan not found")
+        detail = "Not authorized to access this report" if user_id is not None else "Scan not found"
+        code = status.HTTP_403_FORBIDDEN if user_id is not None else status.HTTP_404_NOT_FOUND
+        raise HTTPException(status_code=code, detail=detail)
     return scan
 
 
-def get_report(db: Session, scan_id: int) -> Report:
-    scan = _get_scan_or_404(db, scan_id)
+def get_report(db: Session, scan_id: int, user_id: int | None = None) -> Report:
+    scan = _get_scan_or_404(db, scan_id, user_id=user_id)
     return Report(
         scan_id=scan.id, file_name=scan.file_name, display_file_name=scan.file_name,
         scan_date=scan.scan_date, total_vulnerabilities=getattr(scan,"total_findings",0),
@@ -413,13 +418,13 @@ def get_report(db: Session, scan_id: int) -> Report:
     )
 
 
-def get_structured_report(db: Session, scan_id: int) -> FullStructuredReportSchema:
-    scan = _get_scan_or_404(db, scan_id)
+def get_structured_report(db: Session, scan_id: int, user_id: int | None = None) -> FullStructuredReportSchema:
+    scan = _get_scan_or_404(db, scan_id, user_id=user_id)
     return build_structured_report(scan)
 
 
-def get_report_pdf(db: Session, scan_id: int) -> bytes:
-    scan = _get_scan_or_404(db, scan_id)
+def get_report_pdf(db: Session, scan_id: int, user_id: int | None = None) -> bytes:
+    scan = _get_scan_or_404(db, scan_id, user_id=user_id)
     structured = build_structured_report(scan)
     buffer = BytesIO()
     doc = _DSDocTemplate(

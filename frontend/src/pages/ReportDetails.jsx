@@ -210,6 +210,9 @@ const ReportDetails = () => {
   const [otpForDownload, setOtpForDownload] = useState('');
   const [otpNeeded, setOtpNeeded] = useState(false);
   const [downloadError, setDownloadError] = useState('');
+  const [passModal, setPassModal] = useState(false);
+  const [passphrase, setPassphrase] = useState('');
+  const [passError, setPassError] = useState('');
 
   const fetchReport = () => {
     if (!scanId) return;
@@ -234,30 +237,49 @@ const ReportDetails = () => {
 
   useEffect(() => { fetchReport(); }, [scanId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const handleDownload = async () => {
+  const startProtectedDownload = () => {
+    setPassError('');
+    setPassModal(true);
+  };
+
+  const handleProtectedDownload = async () => {
     setDownloading(true);
     setDownloadError('');
+    setPassError('');
     setOtpNeeded(false);
     try {
+      if (!passphrase || passphrase.length < 6) {
+        setPassError('Passphrase must be at least 6 characters.');
+        return;
+      }
+      let headers = {};
       if (user?.mfa_enabled) {
         if (!otpForDownload) {
           setOtpNeeded(true);
+          setPassError('Enter OTP for MFA-enabled account.');
           return;
         }
         await verifyMfa(otpForDownload);
+        headers = { 'X-OTP': otpForDownload };
       }
-      const headers = user?.mfa_enabled && otpForDownload ? { 'X-OTP': otpForDownload } : {};
-      const res = await api.get(`/api/reports/${scanId}/pdf`, { responseType: 'blob', headers });
+
+      const res = await api.post(
+        `/api/reports/${scanId}/protected-pdf`,
+        { passphrase },
+        { responseType: 'blob', headers }
+      );
       const blob = new Blob([res.data], { type: 'application/pdf' });
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `DristiScan_Report_${report?.file_name || scanId}_${new Date().toISOString().slice(0, 10)}.pdf`;
+      a.download = `DristiScan_Report_${report?.file_name || scanId}_${new Date().toISOString().slice(0, 10)}_protected.pdf`;
       document.body.appendChild(a); a.click(); a.remove();
       window.URL.revokeObjectURL(url);
       if (user?.mfa_enabled) setOtpForDownload('');
+      setPassphrase('');
+      setPassModal(false);
     } catch (err) {
-      const msg = err?.response?.data?.detail || 'Unable to download report.';
+      const msg = err?.response?.data?.detail || 'Unable to generate protected report.';
       setDownloadError(msg);
     } finally {
       setDownloading(false);
@@ -360,10 +382,10 @@ const ReportDetails = () => {
           </div>
           <div className="flex flex-col gap-2 items-end w-full md:w-auto">
             <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
-              onClick={handleDownload} disabled={downloading}
+              onClick={startProtectedDownload} disabled={downloading}
               className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-cyan-500/10 border border-cyan-500/25 text-cyan-300 text-sm font-semibold hover:bg-cyan-500/20 transition disabled:opacity-50 flex-shrink-0 self-start">
               <Download size={15} />
-              {downloading ? 'Preparing...' : 'Download PDF'}
+              {downloading ? 'Preparing...' : 'Download Protected Report'}
             </motion.button>
             {user?.mfa_enabled && (
               <div className="flex flex-col gap-1 w-full sm:w-64">
@@ -372,7 +394,7 @@ const ReportDetails = () => {
                   onChange={(e) => setOtpForDownload(e.target.value.replace(/\D/g, '').slice(0, 6))}
                   inputMode="numeric"
                   pattern="[0-9]*"
-                  placeholder="OTP to unlock PDF"
+                  placeholder="OTP (if MFA enabled)"
                   className="w-full bg-white/[0.04] border border-white/[0.08] rounded-xl px-3 py-2 text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-accent tracking-widest font-mono"
                 />
                 {otpNeeded && <p className="text-[11px] text-slate-500 text-right">Enter a fresh code to download securely.</p>}
@@ -541,9 +563,64 @@ const ReportDetails = () => {
         <p className="text-xs text-slate-800">{new Date().toLocaleString()}</p>
       </div>
 
+      <PassphraseModal
+        open={passModal}
+        onClose={() => { setPassModal(false); setPassError(''); }}
+        onSubmit={handleProtectedDownload}
+        passphrase={passphrase}
+        setPassphrase={setPassphrase}
+        passError={passError}
+        loading={downloading}
+      />
+
     </motion.div>
   );
 };
 
 export default ReportDetails;
+
+// Modal for passphrase
+// (kept inline to avoid larger refactor)
+const PassphraseModal = ({ open, onClose, onSubmit, passphrase, setPassphrase, passError, loading }) => {
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
+      <div className="bg-slate-900 border border-white/10 rounded-2xl shadow-xl max-w-md w-full p-6 space-y-4">
+        <h3 className="text-lg font-semibold text-white">Download Protected Report</h3>
+        <p className="text-sm text-slate-400">
+          Enter a passphrase to protect the downloaded report. You will need this passphrase to open it later.
+        </p>
+        <div className="space-y-2">
+          <label className="text-sm text-slate-300">Passphrase</label>
+          <input
+            type="password"
+            value={passphrase}
+            onChange={(e) => setPassphrase(e.target.value)}
+            className="w-full bg-white/[0.04] border border-white/[0.08] rounded-xl px-4 py-3 text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-accent"
+            placeholder="At least 6 characters"
+          />
+          {passError && <p className="text-xs text-red-300">{passError}</p>}
+        </div>
+        <div className="flex justify-end gap-3 pt-1">
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-4 py-2 rounded-xl bg-white/[0.04] border border-white/[0.1] text-slate-200 hover:bg-white/[0.07] transition"
+            disabled={loading}
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={onSubmit}
+            disabled={loading}
+            className="px-4 py-2 rounded-xl bg-gradient-to-r from-cyan-400 to-blue-500 text-white font-semibold shadow-[0_0_12px_rgba(34,211,238,0.25)] hover:shadow-[0_0_18px_rgba(34,211,238,0.35)] transition disabled:opacity-60"
+          >
+            {loading ? 'Preparing...' : 'Download protected PDF'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
 
