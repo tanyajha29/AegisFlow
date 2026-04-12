@@ -9,7 +9,7 @@ services:
       POSTGRES_PASSWORD: adminpassword
       POSTGRES_DB: drishtiscan
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     restart: always
@@ -20,6 +20,7 @@ services:
     ports:
       - "8000:8000"
     environment:
+      # Use the container port (5432) for internal connectivity; host maps 5433:5432
       - DATABASE_URL=postgresql://admin:adminpassword@db:5432/drishtiscan
       - SECRET_KEY=supersecretkey_change_in_production
       - ALGORITHM=HS256
@@ -28,6 +29,7 @@ services:
       - OLLAMA_URL=${OLLAMA_URL:-http://host.docker.internal:11434}
       - OLLAMA_MODEL=${OLLAMA_MODEL:-deepseek-coder}
       - OLLAMA_TIMEOUT_SECONDS=${OLLAMA_TIMEOUT_SECONDS:-120}
+      - FERNET_KEY=${FERNET_KEY}
       - RAG_DEBUG=${RAG_DEBUG:-false}
       - RAG_TOP_K=${RAG_TOP_K:-5}
       - LLM_PROVIDER=${LLM_PROVIDER:-openrouter}

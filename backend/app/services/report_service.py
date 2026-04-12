@@ -1,6 +1,7 @@
 """DristiScan PDF Report Generator — professional enterprise layout."""
 from __future__ import annotations
 import logging
+import os
 from collections import Counter
 from datetime import datetime
 from io import BytesIO
@@ -13,16 +14,19 @@ from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import mm
 from reportlab.platypus import (
-    BaseDocTemplate, Frame, HRFlowable, NextPageTemplate, PageBreak,
+    BaseDocTemplate, Frame, HRFlowable, Image, NextPageTemplate, PageBreak,
     PageTemplate, Paragraph, Spacer, Table, TableStyle,
 )
+from reportlab.lib.utils import ImageReader
 from sqlalchemy.orm import Session
 from ..models.scan_model import Scan
 from ..schemas.report_schema import FullStructuredReportSchema, Report
+from ..config import get_settings
 from .risk_engine import risk_level
 from .structured_report import build_structured_report
 
 logger = logging.getLogger("dristi-scan")
+settings = get_settings()
 
 PW, PH = A4
 ML, MR, MT, MB = 20*mm, 20*mm, 22*mm, 22*mm
@@ -51,10 +55,10 @@ def _styles():
     def a(n, **kw):
         if n not in b: b.add(ParagraphStyle(name=n, **kw))
         return b[n]
-    a("DS_Cover_Brand",fontSize=28,leading=34,textColor=C_WHITE,fontName="Helvetica-Bold",alignment=TA_CENTER)
-    a("DS_Cover_Tag",fontSize=11,leading=15,textColor=C_CYAN,fontName="Helvetica",alignment=TA_CENTER,spaceAfter=6)
-    a("DS_Cover_Title",fontSize=18,leading=24,textColor=C_WHITE,fontName="Helvetica-Bold",alignment=TA_CENTER,spaceBefore=18,spaceAfter=6)
-    a("DS_Cover_Sub",fontSize=11,leading=15,textColor=C_SLATE_LT,fontName="Helvetica",alignment=TA_CENTER,spaceAfter=4)
+    a("DS_Cover_Brand",fontSize=28,leading=34,textColor=C_NAVY2,fontName="Helvetica-Bold",alignment=TA_CENTER)
+    a("DS_Cover_Tag",fontSize=11,leading=15,textColor=C_SLATE,fontName="Helvetica",alignment=TA_CENTER,spaceAfter=6)
+    a("DS_Cover_Title",fontSize=18,leading=24,textColor=C_NAVY,fontName="Helvetica-Bold",alignment=TA_CENTER,spaceBefore=12,spaceAfter=6)
+    a("DS_Cover_Sub",fontSize=11,leading=15,textColor=C_SLATE,fontName="Helvetica",alignment=TA_CENTER,spaceAfter=4)
     a("DS_H1",fontSize=15,leading=20,textColor=C_NAVY,fontName="Helvetica-Bold",spaceBefore=14,spaceAfter=6)
     a("DS_H2",fontSize=12,leading=16,textColor=C_NAVY2,fontName="Helvetica-Bold",spaceBefore=10,spaceAfter=4)
     a("DS_Body",fontSize=9,leading=13,textColor=C_TEXT,fontName="Helvetica",spaceAfter=4)
@@ -94,6 +98,18 @@ def _section_header(title,number=""):
     st=_styles(); label=f"{number}  {title}" if number else title
     return [_rule(C_CYAN,1.5),Paragraph(label,st["DS_H1"]),_sp(4)]
 
+def _draw_logo(canvas, path: str | None, x: float, y: float, target_width_mm: float = 24):
+    if not path or not os.path.exists(path):
+        return
+    try:
+        img = ImageReader(path)
+        iw, ih = img.getSize()
+        width = target_width_mm * mm
+        height = width * (ih / iw) if iw else target_width_mm * mm
+        canvas.drawImage(img, x, y - height, width=width, height=height, mask="auto", preserveAspectRatio=True)
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.warning("Could not render logo on PDF header: %s", exc)
+
 def _sev_count_table(critical,high,medium,low):
     cw=CONTENT_W/4
     hs=ParagraphStyle("SCH",fontSize=8,leading=10,textColor=C_WHITE,fontName="Helvetica-Bold",alignment=TA_CENTER)
@@ -112,29 +128,29 @@ def _sev_count_table(critical,high,medium,low):
 
 
 class _DSDocTemplate(BaseDocTemplate):
-    def __init__(self,buffer,scan_id,file_name,**kw):
+    def __init__(self,buffer,scan_id,file_name,logo_path=None,**kw):
         super().__init__(buffer,**kw)
-        self._scan_id=scan_id; self._file_name=file_name
+        self._scan_id=scan_id; self._file_name=file_name; self._logo_path=logo_path
         cf=Frame(ML,MB,CONTENT_W,PH-MT-MB,id="cover")
         inf=Frame(ML,MB+10*mm,CONTENT_W,PH-MT-MB-10*mm,id="inner")
         self.addPageTemplates([PageTemplate(id="Cover",frames=[cf],onPage=self._on_cover),
                                PageTemplate(id="Inner",frames=[inf],onPage=self._on_inner)])
     def _on_cover(self,canvas,doc):
         canvas.saveState()
-        canvas.setFillColor(C_NAVY); canvas.rect(0,0,PW,PH,fill=1,stroke=0)
-        canvas.setFillColor(C_CYAN); canvas.rect(0,0,PW,8*mm,fill=1,stroke=0)
+        canvas.setFillColor(C_WHITE); canvas.rect(0,0,PW,PH,fill=1,stroke=0)
+        canvas.setStrokeColor(C_RULE); canvas.setLineWidth(0.5)
+        canvas.line(ML,PH-18*mm,PW-MR,PH-18*mm)
         canvas.restoreState()
     def _on_inner(self,canvas,doc):
         canvas.saveState()
         canvas.setFillColor(C_WHITE); canvas.rect(0,0,PW,PH,fill=1,stroke=0)
-        canvas.setFillColor(C_NAVY); canvas.rect(0,PH-12*mm,PW,12*mm,fill=1,stroke=0)
-        canvas.setFont("Helvetica-Bold",9); canvas.setFillColor(C_CYAN)
-        canvas.drawString(ML,PH-8*mm,"DristiScan")
-        canvas.setFont("Helvetica",7); canvas.setFillColor(C_SLATE_LT)
-        canvas.drawString(ML+28*mm,PH-8*mm,"Security Intelligence Platform")
-        canvas.setFont("Helvetica",7); canvas.setFillColor(C_MUTED)
-        canvas.drawRightString(PW-MR,PH-8*mm,(self._file_name or "")[:60])
-        canvas.setStrokeColor(C_RULE); canvas.setLineWidth(0.5)
+        _draw_logo(canvas,self._logo_path,ML,PH-10*mm,22)
+        canvas.setFont("Helvetica-Bold",9); canvas.setFillColor(C_NAVY2)
+        canvas.drawString(ML+25*mm,PH-10*mm,"DristiScan")
+        canvas.setFont("Helvetica",7); canvas.setFillColor(C_SLATE)
+        canvas.drawRightString(PW-MR,PH-10*mm,(self._file_name or "")[:70])
+        canvas.setStrokeColor(C_RULE); canvas.setLineWidth(0.6)
+        canvas.line(ML,PH-14*mm,PW-MR,PH-14*mm)
         canvas.line(ML,MB+8*mm,PW-MR,MB+8*mm)
         canvas.setFont("Helvetica",7); canvas.setFillColor(C_MUTED)
         canvas.drawString(ML,MB+4*mm,f"Confidential – DristiScan  ·  Scan #{self._scan_id}")
@@ -143,27 +159,48 @@ class _DSDocTemplate(BaseDocTemplate):
 
 
 
-def _cover_page(scan,structured):
+def _cover_page(scan,structured,logo_path: str | None):
     st=_styles(); s=structured.summary
     risk_label=s.overall_risk; risk_color=SEV_COLORS.get(risk_label,C_SLATE)
     scan_date=getattr(scan,"scan_date",datetime.utcnow())
     date_str=scan_date.strftime("%B %d, %Y") if hasattr(scan_date,"strftime") else str(scan_date)
-    bs=ParagraphStyle("CB2",fontSize=13,leading=17,textColor=C_WHITE,fontName="Helvetica-Bold",alignment=TA_CENTER)
-    bt=Table([[Paragraph(f"{risk_label.upper()} RISK",bs)]],colWidths=[50*mm])
-    bt.setStyle(TableStyle([("BACKGROUND",(0,0),(-1,-1),risk_color),("TOPPADDING",(0,0),(-1,-1),6),
-                             ("BOTTOMPADDING",(0,0),(-1,-1),6),("LEFTPADDING",(0,0),(-1,-1),10),
-                             ("RIGHTPADDING",(0,0),(-1,-1),10)]))
-    ms=ParagraphStyle("CM2",fontSize=9,leading=13,textColor=C_SLATE_LT,fontName="Helvetica",alignment=TA_CENTER,spaceAfter=3)
-    return [_sp(30),Paragraph("DristiScan",st["DS_Cover_Brand"]),
-            Paragraph("Security Intelligence Platform",st["DS_Cover_Tag"]),
-            _sp(20),_rule(C_CYAN_DARK,1),_sp(8),
-            Paragraph("Security Analysis Report",st["DS_Cover_Title"]),_sp(6),
-            Paragraph(_safe(scan.file_name or "Unknown Target"),st["DS_Cover_Sub"]),_sp(16),
-            Table([[bt]],colWidths=[CONTENT_W],style=[("ALIGN",(0,0),(-1,-1),"CENTER")]),
-            _sp(20),_rule(C_NAVY2,0.5),_sp(8),
-            Paragraph(f"Scan ID: #{scan.id}",ms),Paragraph(f"Date: {date_str}",ms),
-            Paragraph(f"Total Findings: {s.total}  ·  Critical: {s.critical}  ·  High: {s.high}  ·  Medium: {s.medium}  ·  Low: {s.low}",ms),
-            PageBreak()]
+    badge_style=ParagraphStyle("CB2",fontSize=12,leading=16,textColor=C_WHITE,fontName="Helvetica-Bold",alignment=TA_CENTER)
+    badge=Table([[Paragraph(f"{risk_label.upper()} RISK",badge_style)]],colWidths=[55*mm])
+    badge.setStyle(TableStyle([("BACKGROUND",(0,0),(-1,-1),risk_color),("TOPPADDING",(0,0),(-1,-1),7),
+                               ("BOTTOMPADDING",(0,0),(-1,-1),7),("LEFTPADDING",(0,0),(-1,-1),12),
+                               ("RIGHTPADDING",(0,0),(-1,-1),12),("BOX",(0,0),(-1,-1),0.25,risk_color)]))
+    meta_rows=[
+        ("Target File / Repo",_safe(getattr(scan,"file_name","Unknown"))),
+        ("Scan ID",f"#{scan.id}"),
+        ("Scan Date",date_str),
+        ("Scan Type","Static Application Security Testing"),
+        ("Risk Level",risk_label),
+        ("Total Findings",f"{s.total}  ·  Critical {s.critical} / High {s.high} / Medium {s.medium} / Low {s.low}"),
+    ]
+    logo_flow=[]
+    if logo_path and os.path.exists(logo_path):
+        try:
+            logo=Image(logo_path,width=40*mm,height=40*mm)
+            logo.hAlign="CENTER"
+            logo_flow=[logo,_sp(6)]
+        except Exception as exc:  # pragma: no cover - defensive
+            logger.warning("Cover logo render failed: %s", exc)
+    return [
+        _sp(18),
+        *logo_flow,
+        Paragraph("DristiScan",st["DS_Cover_Brand"]),
+        Paragraph("Intelligent DevSecOps Security Platform",st["DS_Cover_Tag"]),
+        _sp(12),
+        Paragraph("Security Analysis Report",st["DS_Cover_Title"]),
+        Paragraph(_safe(scan.file_name or "Unknown Target"),st["DS_Cover_Sub"]),
+        _sp(10),
+        Table([[badge]],colWidths=[CONTENT_W],style=[("ALIGN",(0,0),(-1,-1),"CENTER")]),
+        _sp(14),
+        _info_table(meta_rows),
+        _sp(10),
+        _rule(C_RULE),
+        PageBreak(),
+    ]
 
 def _toc(sections):
     st=_styles(); story=[*_section_header("Table of Contents"),_sp(4)]
@@ -385,8 +422,17 @@ def get_report_pdf(db: Session, scan_id: int) -> bytes:
     scan = _get_scan_or_404(db, scan_id)
     structured = build_structured_report(scan)
     buffer = BytesIO()
-    doc = _DSDocTemplate(buffer, scan_id=str(scan.id), file_name=scan.file_name or "",
-                         pagesize=A4, leftMargin=ML, rightMargin=MR, topMargin=MT, bottomMargin=MB)
+    doc = _DSDocTemplate(
+        buffer,
+        scan_id=str(scan.id),
+        file_name=scan.file_name or "",
+        logo_path=settings.report_logo_path,
+        pagesize=A4,
+        leftMargin=ML,
+        rightMargin=MR,
+        topMargin=MT,
+        bottomMargin=MB,
+    )
     toc_entries = [
         ("01","Executive Summary"),("02","Scan Scope"),("03","Risk Overview"),
         ("04","AI Insights"),("05","Detailed Findings"),("06","Secret Exposure"),
@@ -394,7 +440,7 @@ def get_report_pdf(db: Session, scan_id: int) -> bytes:
         ("09","Recommendations"),("10","Compliance & References"),
     ]
     story: List = [
-        NextPageTemplate("Cover"), *_cover_page(scan, structured),
+        NextPageTemplate("Cover"), *_cover_page(scan, structured, settings.report_logo_path),
         NextPageTemplate("Inner"), *_toc(toc_entries),
         *_executive_summary(scan, structured), *_scan_scope(scan),
         *_risk_overview(structured), *_ai_insights_section(structured),

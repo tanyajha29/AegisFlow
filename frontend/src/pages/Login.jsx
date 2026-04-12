@@ -5,23 +5,49 @@ import { useAuth } from '../context/AuthContext.jsx';
 
 const Login = () => {
   const navigate = useNavigate();
-  const { login, register } = useAuth();
+  const { login, register, verifyLoginMfa } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [otp, setOtp] = useState('');
   const [show, setShow] = useState(false);
   const [loading, setLoading] = useState(false);
   const [mode, setMode] = useState('login');
+  const [step, setStep] = useState('credentials'); // credentials | otp
+  const [challengeToken, setChallengeToken] = useState('');
+  const [error, setError] = useState('');
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
+    setError('');
     try {
       if (mode === 'login') {
-        await login(email, password);
+        const res = await login(email, password);
+        if (res?.mfa_required) {
+          setChallengeToken(res.challenge_token);
+          setStep('otp');
+          return;
+        }
       } else {
         await register(email, password);
       }
       navigate('/app');
+    } catch (err) {
+      setError(err?.response?.data?.detail || 'Unable to authenticate. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleOtpSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+    try {
+      await verifyLoginMfa(challengeToken, otp);
+      navigate('/app');
+    } catch (err) {
+      setError(err?.response?.data?.detail || 'Invalid or expired code.');
     } finally {
       setLoading(false);
     }
@@ -62,54 +88,109 @@ const Login = () => {
 
         <div className="glass-strong rounded-3xl border border-border shadow-2xl p-8 space-y-6">
           <div className="flex items-center justify-between">
-            <p className="text-xl font-semibold text-white">{mode === 'login' ? 'Login' : 'Create an account'}</p>
-            <button
-              onClick={() => setMode(mode === 'login' ? 'register' : 'login')}
-              className="text-sm text-accent hover:underline"
-            >
-              {mode === 'login' ? 'Need an account?' : 'Have an account?'}
-            </button>
+            <p className="text-xl font-semibold text-white">
+              {step === 'otp' ? 'Multi-factor verification' : mode === 'login' ? 'Login' : 'Create an account'}
+            </p>
+            {step === 'otp' ? (
+              <button
+                onClick={() => {
+                  setStep('credentials');
+                  setOtp('');
+                  setChallengeToken('');
+                  setError('');
+                }}
+                className="text-sm text-accent hover:underline"
+                type="button"
+              >
+                Back
+              </button>
+            ) : (
+              <button
+                onClick={() => {
+                  setMode(mode === 'login' ? 'register' : 'login');
+                  setStep('credentials');
+                  setChallengeToken('');
+                  setOtp('');
+                  setError('');
+                }}
+                className="text-sm text-accent hover:underline"
+                type="button"
+              >
+                {mode === 'login' ? 'Need an account?' : 'Have an account?'}
+              </button>
+            )}
           </div>
-          <form className="space-y-4" onSubmit={handleSubmit}>
-            <div className="space-y-2">
-              <label className="text-sm text-slate-300">Email</label>
-              <input
-                required
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full bg-surface border border-border rounded-xl px-4 py-3 text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-accent"
-                placeholder="you@company.com"
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm text-slate-300">Password</label>
-              <div className="relative">
+
+          {error && <p className="text-sm text-red-300 bg-red-500/10 border border-red-500/30 rounded-lg px-3 py-2">{error}</p>}
+
+          {step === 'credentials' ? (
+            <form className="space-y-4" onSubmit={handleSubmit}>
+              <div className="space-y-2">
+                <label className="text-sm text-slate-300">Email</label>
                 <input
                   required
-                  type={show ? 'text' : 'password'}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full bg-surface border border-border rounded-xl px-4 py-3 pr-11 text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-accent"
-                  placeholder="••••••••"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full bg-surface border border-border rounded-xl px-4 py-3 text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-accent"
+                  placeholder="you@company.com"
                 />
-                <button
-                  type="button"
-                  onClick={() => setShow(!show)}
-                  className="absolute right-3 top-3 text-slate-400"
-                >
-                  {show ? <EyeSlashIcon className="h-5 w-5" /> : <EyeIcon className="h-5 w-5" />}
-                </button>
               </div>
-            </div>
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full py-3 rounded-xl bg-gradient-to-r from-cyber to-accent text-white font-semibold shadow-glow hover:opacity-95 transition"
-            >
-              {loading ? 'Processing...' : mode === 'login' ? 'Login Securely' : 'Create Account'}
-            </button>
-          </form>
+              <div className="space-y-2">
+                <label className="text-sm text-slate-300">Password</label>
+                <div className="relative">
+                  <input
+                    required
+                    type={show ? 'text' : 'password'}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="w-full bg-surface border border-border rounded-xl px-4 py-3 pr-11 text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-accent"
+                    placeholder="••••••••"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShow(!show)}
+                    className="absolute right-3 top-3 text-slate-400"
+                  >
+                    {show ? <EyeSlashIcon className="h-5 w-5" /> : <EyeIcon className="h-5 w-5" />}
+                  </button>
+                </div>
+              </div>
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full py-3 rounded-xl bg-gradient-to-r from-cyber to-accent text-white font-semibold shadow-glow hover:opacity-95 transition"
+              >
+                {loading ? 'Processing...' : mode === 'login' ? 'Login Securely' : 'Create Account'}
+              </button>
+            </form>
+          ) : (
+            <form className="space-y-4" onSubmit={handleOtpSubmit}>
+              <p className="text-sm text-slate-300">
+                Enter the 6-digit code from your authenticator app to finish signing in.
+              </p>
+              <div className="space-y-2">
+                <label className="text-sm text-slate-300">One-time passcode</label>
+                <input
+                  autoFocus
+                  required
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  value={otp}
+                  onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                  className="w-full bg-surface border border-border rounded-xl px-4 py-3 text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-accent tracking-widest font-mono"
+                  placeholder="123456"
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={loading || !otp}
+                className="w-full py-3 rounded-xl bg-gradient-to-r from-cyber to-accent text-white font-semibold shadow-glow hover:opacity-95 transition"
+              >
+                {loading ? 'Verifying...' : 'Verify & continue'}
+              </button>
+            </form>
+          )}
           <p className="text-xs text-slate-500 text-center">
             By signing in you agree to security monitoring and scanning policies.
           </p>

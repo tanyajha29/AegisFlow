@@ -25,12 +25,36 @@ class GitHubClient:
         headers = {"Accept": "application/vnd.github+json"}
         if self.token:
             headers["Authorization"] = f"Bearer {self.token}"
+        # GitHub requires a user agent; httpx sets one by default but we keep it explicit
+        headers.setdefault("User-Agent", "dristi-scan/1.0")
         return headers
+
+    @staticmethod
+    def _raise_if_rate_limited(resp: httpx.Response) -> None:
+        # Provide a friendlier error when unauthenticated requests hit the low GitHub rate limit (60/hr)
+        remaining = resp.headers.get("X-RateLimit-Remaining")
+        if resp.status_code == 403 and remaining == "0":
+            reset = resp.headers.get("X-RateLimit-Reset")
+            reset_ts = ""
+            if reset:
+                try:
+                    import datetime
+
+                    reset_dt = datetime.datetime.fromtimestamp(int(reset))
+                    reset_ts = f" (resets at {reset_dt.isoformat()})"
+                except Exception:
+                    reset_ts = ""
+            message = (
+                "GitHub API rate limit exceeded. Set GITHUB_TOKEN in your .env for higher limits"
+                f"{reset_ts}."
+            )
+            raise httpx.HTTPStatusError(message, request=resp.request, response=resp)
 
     async def fetch_repo_default_branch(self, owner: str, repo: str) -> str:
         url = f"{self.base_url}/repos/{owner}/{repo}"
         async with httpx.AsyncClient(timeout=20) as client:
             resp = await client.get(url, headers=self._headers())
+            self._raise_if_rate_limited(resp)
             resp.raise_for_status()
             data = resp.json()
             return data.get("default_branch", "main")
@@ -39,6 +63,7 @@ class GitHubClient:
         url = f"{self.base_url}/repos/{owner}/{repo}/git/trees/{branch}?recursive=1"
         async with httpx.AsyncClient(timeout=30) as client:
             resp = await client.get(url, headers=self._headers())
+            self._raise_if_rate_limited(resp)
             resp.raise_for_status()
             data = resp.json()
             return data.get("tree", [])
@@ -47,6 +72,7 @@ class GitHubClient:
         url = f"{self.base_url}/repos/{owner}/{repo}/git/blobs/{sha}"
         async with httpx.AsyncClient(timeout=30) as client:
             resp = await client.get(url, headers=self._headers())
+            self._raise_if_rate_limited(resp)
             resp.raise_for_status()
             data = resp.json()
             content = data.get("content", "")

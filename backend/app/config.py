@@ -46,6 +46,11 @@ class Settings(BaseSettings):
     openrouter_base_url: str = Field(default="https://openrouter.ai/api/v1", description="OpenRouter base URL")
     openrouter_site_url: str = Field(default="http://localhost:5173", description="Sent as HTTP-Referer")
     openrouter_site_name: str = Field(default="DristiScan", description="Sent as X-Title")
+    fernet_key: str | None = Field(default=None, description="Fernet key for encrypting MFA secrets")
+    report_logo_path: str = Field(
+        default=os.path.join(os.getcwd(), "backend", "app", "assets", "dristiscan-logo.png"),
+        description="Path to the DristiScan logo used in PDF reports",
+    )
     rag_debug: bool = Field(default=False, description="Enable verbose RAG debug logging")
     ai_injection_enabled: bool = Field(default=False, description="Enable Injection Agent (Phase 2)")
     ai_secrets_enabled: bool = Field(default=False, description="Enable Secrets Agent (Phase 3)")

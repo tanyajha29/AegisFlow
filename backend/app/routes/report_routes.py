@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
 from sqlalchemy.orm import Session
 from starlette.responses import StreamingResponse
 
@@ -8,6 +8,7 @@ from ..models.scan_model import Scan
 from ..schemas.report_schema import FullStructuredReportSchema, Report, ReportHistory
 from ..utils.file_handler import strip_generated_prefix
 from ..services.report_service import get_report, get_report_pdf, get_structured_report
+from ..services.mfa_service import verify_user_otp
 from ..services.risk_engine import risk_level
 
 
@@ -50,7 +51,21 @@ def fetch_report(scan_id: int, db: Session = Depends(get_db), current_user=Depen
 
 
 @router.get("/{scan_id}/pdf")
-def fetch_report_pdf(scan_id: int, db: Session = Depends(get_db), current_user=Depends(get_current_user)):
+def fetch_report_pdf(
+    scan_id: int,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+    otp: str | None = Query(default=None, description="One-time passcode for step-up authentication"),
+    otp_header: str | None = Header(default=None, alias="X-OTP"),
+):
+    if current_user.mfa_enabled:
+        otp_value = otp or otp_header
+        if not otp_value:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="OTP required to access this report",
+            )
+        verify_user_otp(db, current_user, otp_value)
     report = get_report(db, scan_id)
     pdf_bytes = get_report_pdf(db, scan_id)
     filename = f"DristiScan_Report_{report.file_name}_{report.scan_date.strftime('%Y%m%d')}.pdf"

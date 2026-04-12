@@ -12,6 +12,7 @@ import { normalizeReport } from '../lib/reportMapper.js';
 import GlassCard from '../components/GlassCard.jsx';
 import SeverityBadge from '../components/SeverityBadge.jsx';
 import ProgressBar from '../components/ProgressBar.jsx';
+import { useAuth } from '../context/AuthContext.jsx';
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
@@ -201,10 +202,14 @@ const Skeleton = () => (
 const ReportDetails = () => {
   const { scanId } = useParams();
   const navigate = useNavigate();
+  const { user, verifyMfa } = useAuth();
   const [report, setReport] = useState(null);   // normalized report
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [downloading, setDownloading] = useState(false);
+  const [otpForDownload, setOtpForDownload] = useState('');
+  const [otpNeeded, setOtpNeeded] = useState(false);
+  const [downloadError, setDownloadError] = useState('');
 
   const fetchReport = () => {
     if (!scanId) return;
@@ -231,8 +236,18 @@ const ReportDetails = () => {
 
   const handleDownload = async () => {
     setDownloading(true);
+    setDownloadError('');
+    setOtpNeeded(false);
     try {
-      const res = await api.get(`/api/reports/${scanId}/pdf`, { responseType: 'blob' });
+      if (user?.mfa_enabled) {
+        if (!otpForDownload) {
+          setOtpNeeded(true);
+          return;
+        }
+        await verifyMfa(otpForDownload);
+      }
+      const headers = user?.mfa_enabled && otpForDownload ? { 'X-OTP': otpForDownload } : {};
+      const res = await api.get(`/api/reports/${scanId}/pdf`, { responseType: 'blob', headers });
       const blob = new Blob([res.data], { type: 'application/pdf' });
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -240,8 +255,13 @@ const ReportDetails = () => {
       a.download = `DristiScan_Report_${report?.file_name || scanId}_${new Date().toISOString().slice(0, 10)}.pdf`;
       document.body.appendChild(a); a.click(); a.remove();
       window.URL.revokeObjectURL(url);
-    } catch { /* non-fatal */ }
-    finally { setDownloading(false); }
+      if (user?.mfa_enabled) setOtpForDownload('');
+    } catch (err) {
+      const msg = err?.response?.data?.detail || 'Unable to download report.';
+      setDownloadError(msg);
+    } finally {
+      setDownloading(false);
+    }
   };
 
   // ── loading ──────────────────────────────────────────────────────────────
@@ -338,12 +358,28 @@ const ReportDetails = () => {
               <span className="px-3 py-1 rounded-lg bg-white/[0.04] border border-white/[0.08] text-xs text-slate-500">DristiScan v2</span>
             </div>
           </div>
-          <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
-            onClick={handleDownload} disabled={downloading}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-cyan-500/10 border border-cyan-500/25 text-cyan-300 text-sm font-semibold hover:bg-cyan-500/20 transition disabled:opacity-50 flex-shrink-0 self-start">
-            <Download size={15} />
-            {downloading ? 'Preparing...' : 'Download PDF'}
-          </motion.button>
+          <div className="flex flex-col gap-2 items-end w-full md:w-auto">
+            <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
+              onClick={handleDownload} disabled={downloading}
+              className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-cyan-500/10 border border-cyan-500/25 text-cyan-300 text-sm font-semibold hover:bg-cyan-500/20 transition disabled:opacity-50 flex-shrink-0 self-start">
+              <Download size={15} />
+              {downloading ? 'Preparing...' : 'Download PDF'}
+            </motion.button>
+            {user?.mfa_enabled && (
+              <div className="flex flex-col gap-1 w-full sm:w-64">
+                <input
+                  value={otpForDownload}
+                  onChange={(e) => setOtpForDownload(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  placeholder="OTP to unlock PDF"
+                  className="w-full bg-white/[0.04] border border-white/[0.08] rounded-xl px-3 py-2 text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-accent tracking-widest font-mono"
+                />
+                {otpNeeded && <p className="text-[11px] text-slate-500 text-right">Enter a fresh code to download securely.</p>}
+              </div>
+            )}
+            {downloadError && <p className="text-xs text-red-300 text-right max-w-sm">{downloadError}</p>}
+          </div>
         </div>
       </div>
 

@@ -10,6 +10,14 @@ export const AuthProvider = ({ children }) => {
     const [token, setToken] = useState(localStorage.getItem('token') || null);
     const [loading, setLoading] = useState(true);
 
+    const applyToken = (value) => {
+        setToken(value);
+        if (value) {
+            api.defaults.headers.common['Authorization'] = `Bearer ${value}`;
+            localStorage.setItem('token', value);
+        }
+    };
+
     useEffect(() => {
         if (token) {
             api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
@@ -33,15 +41,52 @@ export const AuthProvider = ({ children }) => {
 
     const login = async (email, password) => {
         const { data } = await api.post('/auth/login', { email, password });
-        setToken(data.access_token);
+        if (data.mfa_required) {
+            return { mfa_required: true, challenge_token: data.challenge_token };
+        }
+        applyToken(data.access_token);
         const profile = await api.get('/auth/profile');
         setUser(profile.data);
-        return true;
+        return { mfa_required: false };
     };
 
     const register = async (email, password) => {
         await api.post('/auth/register', { email, password });
         return login(email, password); // auto-login
+    };
+
+    const verifyLoginMfa = async (challengeToken, otp) => {
+        const { data } = await api.post('/auth/verify-login-mfa', {
+            challenge_token: challengeToken,
+            otp
+        });
+        applyToken(data.access_token);
+        const profile = await api.get('/auth/profile');
+        setUser(profile.data);
+        return true;
+    };
+
+    const fetchProfile = async () => {
+        const profile = await api.get('/auth/profile');
+        setUser(profile.data);
+        return profile.data;
+    };
+
+    const startMfaSetup = async () => {
+        const { data } = await api.post('/auth/setup-mfa');
+        return data;
+    };
+
+    const verifyMfa = async (otp) => {
+        const { data } = await api.post('/auth/verify-mfa', { otp });
+        await fetchProfile();
+        return data;
+    };
+
+    const disableMfa = async (otp) => {
+        const { data } = await api.post('/auth/disable-mfa', { otp });
+        await fetchProfile();
+        return data;
     };
 
     const logout = () => {
@@ -54,7 +99,12 @@ export const AuthProvider = ({ children }) => {
         login,
         register,
         logout,
-        loading
+        loading,
+        verifyLoginMfa,
+        startMfaSetup,
+        verifyMfa,
+        disableMfa,
+        fetchProfile
     };
 
     return <AuthContext.Provider value={value}>{!loading && children}</AuthContext.Provider>;
