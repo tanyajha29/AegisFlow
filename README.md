@@ -302,3 +302,31 @@ OWASP A03, CWE-89
 ## 👩‍💻 Author
 
 Built as a production-grade DevSecOps + AI Security system.
+---
+
+## Recent Additions (2026)
+- TOTP-based MFA via authenticator apps (Google/Microsoft/Authy) with encrypted secrets using `FERNET_KEY`.
+- Two-step login: password first, then OTP when `mfa_enabled` is true (via `mfa_required` flag + `verify-login-mfa`).
+- Owner-only report access enforced on all report view/download endpoints.
+- Protected PDF download: owner enters a passphrase and receives a password-locked PDF; passphrase is not stored.
+- Report styling refreshed: light cover, DristiScan logo on cover and headers, improved typography/spacing, footer page numbers.
+
+### Key Endpoints
+- `POST /api/auth/setup-mfa` ? returns otpauth URI + QR (base64)
+- `POST /api/auth/verify-mfa` ? confirm OTP and enable MFA
+- `POST /api/auth/login` ? returns `mfa_required` when MFA is on
+- `POST /api/auth/verify-login-mfa` ? finalize login with OTP
+- `GET /api/reports/{id}` ? owner-only in-app view
+- `GET /api/reports/{id}/pdf` ? owner-only standard PDF
+- `POST /api/reports/{id}/protected-pdf` ? owner-only, body `{ "passphrase": "..." }`, returns password-protected PDF
+
+### Environment Notes
+- Set `FERNET_KEY` for MFA secret encryption (32-byte base64, Fernet).
+- Dependencies already in backend requirements: `pyotp`, `qrcode[pil]`, `cryptography`, `PyPDF2`.
+
+### Manual Checks
+- Enable MFA flow works end-to-end (QR, OTP confirm, `mfa_enabled` true).
+- Login with MFA returns `mfa_required` and succeeds after OTP.
+- Owners can view reports; non-owners get 403.
+- Protected download returns password-locked PDF; passphrase required to open.
+- Standard PDF download still works for owner.
