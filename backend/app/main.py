@@ -11,6 +11,14 @@ from .utils.rate_limiter import rate_limiter
 
 
 settings = get_settings()
+cors_origins = set(settings.cors_origins or [])
+# Ensure deployed frontend + current tunnel are allowed
+cors_origins.update(
+    {
+        "https://drishti-scan.vercel.app",
+        "https://grades-watershed-navigator-revisions.trycloudflare.com",
+    }
+)
 
 logging.basicConfig(
     level=getattr(logging, settings.log_level.upper(), logging.INFO),
@@ -22,7 +30,7 @@ app = FastAPI(title=settings.project_name, version="1.0.0")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.cors_origins,
+    allow_origins=list(cors_origins),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
