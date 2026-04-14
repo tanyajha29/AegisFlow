@@ -28,6 +28,8 @@
 
 DristiScan is a full-stack cybersecurity SaaS platform designed to scan source code, dependencies, and repositories to detect vulnerabilities and transform them into **actionable security intelligence**.
 
+It now includes TOTP-based MFA for logins and owner-only, passphrase-protected PDF downloads while keeping in-app reports readable for the authenticated owner.
+
 Unlike traditional tools that only detect issues, DristiScan:
 
 * Explains vulnerabilities using trusted security knowledge
@@ -83,11 +85,20 @@ Unlike traditional tools that only detect issues, DristiScan:
 * Fix suggestions with reasoning
 * Secure code examples
 
+### Authentication & Access Control
+
+* Email/password auth with optional TOTP MFA (Google/Microsoft/Authy)
+* Two-step login when MFA is enabled (`mfa_required` + `verify-login-mfa`)
+* Secrets encrypted with Fernet using `FERNET_KEY`
+* Owner-only enforcement on report view/download (403 for non-owners)
+
 ### 📊 Reporting & Insights
 
 * Interactive security dashboard
 * Risk scoring & severity classification
-* PDF & JSON reports
+* PDF & JSON reports (light cover, logo on cover/headers, improved typography/spacing, footer page numbers)
+* Owner-only access for report view/download (403 for non-owners)
+* Protected PDF download: user-supplied passphrase produces password-locked PDF (passphrase not stored)
 * Scan history tracking
 
 ---
@@ -96,13 +107,13 @@ Unlike traditional tools that only detect issues, DristiScan:
 
 ```plaintext
                     ┌──────────────────────────┐
-                    │        Frontend UI        │
+                    │        Frontend UI       │
                     │  React + Tailwind + UI   │
                     └────────────┬─────────────┘
                                  │
                                  ▼
                     ┌──────────────────────────┐
-                    │        Backend API        │
+                    │        Backend API       │
                     │   FastAPI (Auth + APIs)  │
                     └────────────┬─────────────┘
                                  │
@@ -226,11 +237,12 @@ npm run dev
 
 ## 🔐 Environment Variables
 
-* `DATABASE_URL` – PostgreSQL connection
-* `OLLAMA_URL` – LLM endpoint
-* `OLLAMA_MODEL` – model name
-* `RAG_TOP_K` – retrieval count
-* `UPLOAD_DIR` – file storage
+* `DATABASE_URL` - PostgreSQL connection
+* `FERNET_KEY` - 32-byte base64 key for TOTP secret encryption (required for MFA)
+* `OLLAMA_URL` - LLM endpoint
+* `OLLAMA_MODEL` - model name
+* `RAG_TOP_K` - retrieval count
+* `UPLOAD_DIR` - file storage
 
 ---
 
@@ -243,13 +255,29 @@ npm run dev
 
 ### Reports
 
-* `GET /reports/{id}`
-* `GET /reports/{id}/pdf`
+* `GET /reports/{id}` (owner-only)
+* `GET /reports/{id}/pdf` (owner-only, standard PDF)
+* `POST /reports/{id}/protected-pdf` (owner-only, body: `{ "passphrase": "..." }`, returns password-protected PDF)
+
+### Auth + MFA
+
+* `POST /auth/login` - returns `mfa_required` flag + temp token when MFA is enabled
+* `POST /auth/verify-login-mfa` - finalize login with OTP
+* `POST /auth/setup-mfa` - returns otpauth URI + QR (base64)
+* `POST /auth/verify-mfa` - confirm OTP and enable MFA
 
 ### RAG / AI
 
 * `POST /rag/explain`
 * `POST /rag/fix`
+
+## Testing Checklist (manual)
+
+- Enable MFA: QR shows, OTP verification succeeds, `mfa_enabled` true
+- Login with MFA: password returns `mfa_required=true`; OTP finalizes session
+- Owners can view report page; non-owners get 403
+- Protected download: owner submits passphrase, receives password-locked PDF; non-owner blocked
+- Standard PDF download still works for owner
 
 ---
 
@@ -303,30 +331,3 @@ OWASP A03, CWE-89
 
 Built as a production-grade DevSecOps + AI Security system.
 ---
-
-## Recent Additions (2026)
-- TOTP-based MFA via authenticator apps (Google/Microsoft/Authy) with encrypted secrets using `FERNET_KEY`.
-- Two-step login: password first, then OTP when `mfa_enabled` is true (via `mfa_required` flag + `verify-login-mfa`).
-- Owner-only report access enforced on all report view/download endpoints.
-- Protected PDF download: owner enters a passphrase and receives a password-locked PDF; passphrase is not stored.
-- Report styling refreshed: light cover, DristiScan logo on cover and headers, improved typography/spacing, footer page numbers.
-
-### Key Endpoints
-- `POST /api/auth/setup-mfa` ? returns otpauth URI + QR (base64)
-- `POST /api/auth/verify-mfa` ? confirm OTP and enable MFA
-- `POST /api/auth/login` ? returns `mfa_required` when MFA is on
-- `POST /api/auth/verify-login-mfa` ? finalize login with OTP
-- `GET /api/reports/{id}` ? owner-only in-app view
-- `GET /api/reports/{id}/pdf` ? owner-only standard PDF
-- `POST /api/reports/{id}/protected-pdf` ? owner-only, body `{ "passphrase": "..." }`, returns password-protected PDF
-
-### Environment Notes
-- Set `FERNET_KEY` for MFA secret encryption (32-byte base64, Fernet).
-- Dependencies already in backend requirements: `pyotp`, `qrcode[pil]`, `cryptography`, `PyPDF2`.
-
-### Manual Checks
-- Enable MFA flow works end-to-end (QR, OTP confirm, `mfa_enabled` true).
-- Login with MFA returns `mfa_required` and succeeds after OTP.
-- Owners can view reports; non-owners get 403.
-- Protected download returns password-locked PDF; passphrase required to open.
-- Standard PDF download still works for owner.
