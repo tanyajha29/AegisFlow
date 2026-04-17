@@ -54,7 +54,7 @@ class Settings(BaseSettings):
             ".md",
         }
     )
-    cors_origins: list[str | AnyHttpUrl] = Field(default_factory=lambda: ["*"])
+    cors_origins: str | list[str | AnyHttpUrl] = Field(default="*")
     allow_credentials: bool = Field(default=False, description="Allow credentialed CORS requests")
     log_level: str = Field(default="INFO")
     github_token: str | None = Field(default=None, description="GitHub token for repository scanning")
