@@ -1,4 +1,5 @@
 import logging
+from pathlib import Path
 from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.responses import JSONResponse
@@ -11,14 +12,6 @@ from .utils.rate_limiter import rate_limiter
 
 
 settings = get_settings()
-cors_origins = set(settings.cors_origins or [])
-# Ensure deployed frontend + current tunnel are allowed
-cors_origins.update(
-    {
-        "https://drishti-scan.vercel.app",
-        "https://grades-watershed-navigator-revisions.trycloudflare.com",
-    }
-)
 
 logging.basicConfig(
     level=getattr(logging, settings.log_level.upper(), logging.INFO),
@@ -30,8 +23,8 @@ app = FastAPI(title=settings.project_name, version="1.0.0")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=list(cors_origins),
-    allow_credentials=True,
+    allow_origins=settings.cors_origins,
+    allow_credentials=settings.allow_credentials,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -39,16 +32,19 @@ app.add_middleware(
 
 @app.on_event("startup")
 def on_startup():
+    Path(settings.upload_dir).mkdir(parents=True, exist_ok=True)
     Base.metadata.create_all(bind=engine)
     logger.info("Database tables ensured")
-    # Pre-warm the sentence transformer so the first RAG request isn't blocked
-    # by a model download. This runs once at startup inside the container.
-    try:
-        from .rag.retriever_service import _get_model
-        _get_model()
-        logger.info("SentenceTransformer pre-warmed successfully")
-    except Exception as exc:
-        logger.warning("SentenceTransformer pre-warm failed (non-fatal): %s", exc)
+    if settings.prewarm_embeddings_on_startup:
+        # Optional pre-warm to avoid pulling large models during Render startup.
+        try:
+            from .rag.retriever_service import _get_model
+            _get_model()
+            logger.info("SentenceTransformer pre-warmed successfully")
+        except Exception as exc:
+            logger.warning("SentenceTransformer pre-warm failed (non-fatal): %s", exc)
+    else:
+        logger.info("SentenceTransformer pre-warm skipped")
 
 
 @app.middleware("http")

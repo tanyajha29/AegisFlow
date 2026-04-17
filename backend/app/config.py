@@ -1,7 +1,30 @@
-import os
 from functools import lru_cache
+from pathlib import Path
 from pydantic import Field, AnyHttpUrl, field_validator
 from pydantic_settings import BaseSettings
+
+
+BACKEND_DIR = Path(__file__).resolve().parents[1]
+REPO_DIR = BACKEND_DIR.parent
+
+
+def _default_upload_dir() -> str:
+    return str(BACKEND_DIR / "uploads")
+
+
+def _default_rag_kb_path() -> str:
+    return str(BACKEND_DIR / "app" / "rag" / "kb")
+
+
+def _default_report_logo_path() -> str:
+    candidates = [
+        BACKEND_DIR / "app" / "assets" / "dristiscan-logo.png",
+        REPO_DIR / "docs" / "screens" / "logo.png",
+    ]
+    for candidate in candidates:
+        if candidate.exists():
+            return str(candidate)
+    return str(candidates[0])
 
 
 class Settings(BaseSettings):
@@ -12,7 +35,7 @@ class Settings(BaseSettings):
     jwt_secret_key: str | None = Field(default=None, description="Optional alias for SECRET_KEY")
     algorithm: str = Field(default="HS256")
     access_token_expire_minutes: int = Field(default=60)
-    upload_dir: str = Field(default=os.path.join(os.getcwd(), "backend", "uploads"))
+    upload_dir: str = Field(default_factory=_default_upload_dir)
     max_upload_size_mb: int = Field(default=5)
     allowed_file_types: set[str] = Field(
         default_factory=lambda: {
@@ -32,6 +55,7 @@ class Settings(BaseSettings):
         }
     )
     cors_origins: list[str | AnyHttpUrl] = Field(default_factory=lambda: ["*"])
+    allow_credentials: bool = Field(default=False, description="Allow credentialed CORS requests")
     log_level: str = Field(default="INFO")
     github_token: str | None = Field(default=None, description="GitHub token for repository scanning")
     ollama_url: AnyHttpUrl | str = Field(default="http://localhost:11434", description="Ollama base URL (legacy)")
@@ -47,18 +71,16 @@ class Settings(BaseSettings):
     openrouter_site_url: str = Field(default="http://localhost:5173", description="Sent as HTTP-Referer")
     openrouter_site_name: str = Field(default="DristiScan", description="Sent as X-Title")
     fernet_key: str | None = Field(default=None, description="Fernet key for encrypting MFA secrets")
-    report_logo_path: str = Field(
-        default=os.path.join(os.getcwd(), "backend", "app", "assets", "dristiscan-logo.png"),
-        description="Path to the DristiScan logo used in PDF reports",
-    )
+    report_logo_path: str = Field(default_factory=_default_report_logo_path, description="Path to the DristiScan logo used in PDF reports")
     rag_debug: bool = Field(default=False, description="Enable verbose RAG debug logging")
+    prewarm_embeddings_on_startup: bool = Field(default=False, description="Warm the embedding model during startup")
     ai_injection_enabled: bool = Field(default=False, description="Enable Injection Agent (Phase 2)")
     ai_secrets_enabled: bool = Field(default=False, description="Enable Secrets Agent (Phase 3)")
     ai_auth_enabled: bool = Field(default=False, description="Enable Auth Agent (Phase 4)")
     ai_dependency_enabled: bool = Field(default=False, description="Enable Dependency Agent (Phase 5)")
     ai_planner_enabled: bool = Field(default=False, description="Enable Planner Agent (Phase 6)")
     ai_report_enabled: bool = Field(default=True, description="Enable Report Agent (Phase 9)")
-    rag_kb_path: str = Field(default=os.path.join(os.getcwd(), "backend", "app", "rag", "kb"))
+    rag_kb_path: str = Field(default_factory=_default_rag_kb_path)
     rag_top_k: int = Field(default=5, description="Top-k KB chunks to retrieve for RAG explanations")
 
     class Config:
