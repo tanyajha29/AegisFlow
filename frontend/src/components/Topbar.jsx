@@ -1,7 +1,5 @@
 import { useMemo } from 'react';
-import { BellIcon, Bars3Icon } from '@heroicons/react/24/outline';
-// eslint-disable-next-line no-unused-vars
-import { motion } from 'framer-motion';
+import { Bars3Icon } from '@heroicons/react/24/outline';
 import { useLocation } from 'react-router-dom';
 import { ShieldCheckIcon } from '@heroicons/react/24/solid';
 
@@ -40,19 +38,8 @@ const Topbar = ({ onToggleSidebar }) => {
 
         <div className="flex-1" />
 
-        <div className="flex items-center gap-2">
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            className="relative h-9 w-9 rounded-xl bg-[rgba(59,130,246,0.06)] border border-[rgba(59,130,246,0.15)] flex items-center justify-center text-[#94A3B8] hover:text-white hover:border-[rgba(59,130,246,0.3)] transition"
-          >
-            <BellIcon className="h-[18px] w-[18px]" />
-            <span className="absolute top-1.5 right-1.5 h-1.5 w-1.5 bg-[#22C55E] rounded-full status-active" />
-          </motion.button>
-
-          <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-[#3B82F6] to-[#06B6D4] flex items-center justify-center shadow-[0_0_14px_rgba(59,130,246,0.35)] border border-white/10">
-            <ShieldCheckIcon className="h-5 w-5 text-white" />
-          </div>
+        <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-[#3B82F6] to-[#06B6D4] flex items-center justify-center shadow-[0_0_14px_rgba(59,130,246,0.35)] border border-white/10">
+          <ShieldCheckIcon className="h-5 w-5 text-white" />
         </div>
       </div>
     </header>

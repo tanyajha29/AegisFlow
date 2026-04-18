@@ -3,25 +3,17 @@ import { ArrowDownTrayIcon } from '@heroicons/react/24/outline';
 import GlassCard from '../components/GlassCard.jsx';
 import ProgressBar from '../components/ProgressBar.jsx';
 import { useScan } from '../context/ScanContext.jsx';
-import { useAuth } from '../context/AuthContext.jsx';
 import ResultsFilter from '../components/ResultsFilter.jsx';
 import VulnerabilityList from '../components/VulnerabilityList.jsx';
-import AIInsightsDrawer from '../components/ai/AIInsightsDrawer.jsx';
 import SectionHeader from '../components/SectionHeader.jsx';
 import { Button } from '../components/ui/button';
 
 const Results = () => {
   const { lastResult } = useScan();
-  const { user, verifyMfa } = useAuth();
   const [downloading, setDownloading] = useState(false);
   const [toast, setToast] = useState(null);
   const [selectedSeverity, setSelectedSeverity] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [insightsOpen, setInsightsOpen] = useState(false);
-  const [insightsTab, setInsightsTab] = useState('explain');
-  const [selectedFinding, setSelectedFinding] = useState(null);
-  const [otp, setOtp] = useState('');
-  const [otpNeeded, setOtpNeeded] = useState(false);
   const [passphrase, setPassphrase] = useState('');
   const [passModal, setPassModal] = useState(false);
   const [passError, setPassError] = useState('');
@@ -61,28 +53,17 @@ const Results = () => {
   const handleDownload = async () => {
     if (!lastResult?.scan_id) return;
     setDownloading(true);
-    setOtpNeeded(false);
     setPassError('');
     try {
       if (!passphrase || passphrase.length < 6) {
         setPassError('Passphrase must be at least 6 characters.');
         return;
       }
-      let headers = {};
-      if (user?.mfa_enabled) {
-        if (!otp) {
-          setOtpNeeded(true);
-          setPassError('Enter OTP for MFA-enabled account.');
-          return;
-        }
-        await verifyMfa(otp);
-        headers = { 'X-OTP': otp };
-      }
       const { default: api } = await import('../lib/api.js');
       const res = await api.post(
         `/api/reports/${lastResult.scan_id}/protected-pdf`,
         { passphrase },
-        { responseType: 'blob', headers }
+        { responseType: 'blob' }
       );
       const blob = new Blob([res.data], { type: 'application/pdf' });
       const url = window.URL.createObjectURL(blob);
@@ -95,7 +76,6 @@ const Results = () => {
       a.remove();
       window.URL.revokeObjectURL(url);
       setToast({ type: 'success', message: 'Protected report downloaded' });
-      if (user?.mfa_enabled) setOtp('');
       setPassphrase('');
       setPassModal(false);
     } catch (err) {
@@ -128,39 +108,24 @@ const Results = () => {
           title={`Findings for ${displayName}`}
           description="Review severity, understand context, and export a polished report."
         />
-        <div className="flex flex-col gap-2 items-end w-full md:w-auto">
-          {user?.mfa_enabled && (
-            <input
-              value={otp}
-              onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
-              inputMode="numeric"
-              pattern="[0-9]*"
-              placeholder="OTP (if MFA enabled)"
-              className="w-full md:w-56 bg-white/[0.04] border border-white/[0.08] rounded-xl px-3 py-2 text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-accent tracking-widest font-mono"
-            />
+        <Button
+          type="button"
+          onClick={openProtected}
+          disabled={downloading}
+          variant="outline"
+          size="sm"
+          className="h-11 px-4 border-white/15 text-slate-100 self-start md:self-auto"
+        >
+          {downloading ? (
+            <svg className="h-4 w-4 animate-spin text-white" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+            </svg>
+          ) : (
+            <ArrowDownTrayIcon className="h-4 w-4" />
           )}
-          <Button
-            type="button"
-            onClick={openProtected}
-            disabled={downloading}
-            variant="outline"
-            size="sm"
-            className="h-11 px-4 border-white/15 text-slate-100"
-          >
-            {downloading ? (
-              <svg className="h-4 w-4 animate-spin text-white" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
-              </svg>
-            ) : (
-              <ArrowDownTrayIcon className="h-4 w-4" />
-            )}
-            <span>{downloading ? 'Preparing...' : 'Download Protected Report'}</span>
-          </Button>
-          {otpNeeded && user?.mfa_enabled && (
-            <p className="text-[11px] text-slate-500">Enter a current OTP to download securely.</p>
-          )}
-        </div>
+          <span>{downloading ? 'Preparing...' : 'Download Protected Report'}</span>
+        </Button>
       </div>
       <div className="flex flex-wrap gap-3 text-xs text-slate-400">
         <span className="px-3 py-1 rounded-full border border-white/10 bg-white/5">Scan ID: {lastResult.scan_id}</span>
@@ -228,8 +193,6 @@ const Results = () => {
         vulnerabilities={severities}
         severity={selectedSeverity}
         search={searchTerm}
-        onExplain={(v) => openInsights(v, 'explain')}
-        onFix={(v) => openInsights(v, 'fix')}
       />
 
       <PassphraseModal
@@ -240,13 +203,6 @@ const Results = () => {
         setPassphrase={setPassphrase}
         passError={passError}
         loading={downloading}
-      />
-
-      <AIInsightsDrawer
-        isOpen={insightsOpen}
-        onClose={() => setInsightsOpen(false)}
-        finding={selectedFinding}
-        initialTab={insightsTab}
       />
     </div>
   );

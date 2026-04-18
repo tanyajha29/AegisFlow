@@ -45,6 +45,10 @@ Unlike traditional tools that only detect issues, DristiScan:
 | --- | --- |
 | <img src="docs/screens/Dashboard.png" alt="DristiScan dashboard overview" width="100%" style="border:1px solid #0f172a; border-radius:12px;"> | <img src="docs/screens/scan_result.png" alt="Scanner with findings" width="100%" style="border:1px solid #0f172a; border-radius:12px;"> |
 
+| Scanner Upload |
+| --- |
+| <img src="docs/screens/scanner.png" alt="Scanner upload workflow" width="100%" style="border:1px solid #0f172a; border-radius:12px;"> |
+
 | AI Insights | Scan Results |
 | --- | --- |
 | <img src="docs/screens/ai_insighta.png" alt="AI-powered vulnerability explanation and fix suggestions" width="100%" style="border:1px solid #0f172a; border-radius:12px;"> | <img src="docs/screens/results.png" alt="Scan results with severity breakdown and filters" width="100%" style="border:1px solid #0f172a; border-radius:12px;"> |
