@@ -17,6 +17,7 @@ class UserProfile(BaseModel):
     email: EmailStr
     created_at: datetime
     mfa_enabled: bool = False
+    is_active: bool = True
 
     class Config:
         from_attributes = True
@@ -57,3 +58,19 @@ class MFASetupResponse(BaseModel):
 class MFAStatus(BaseModel):
     mfa_enabled: bool
     backup_codes_remaining: int | None = None
+
+
+# ── New registration flow schemas ────────────────────────────────────────────
+
+class RegisterChallengeResponse(BaseModel):
+    """Returned by POST /auth/register — account is NOT active yet."""
+    challenge_token: str
+    qr_code_base64: str
+    otpauth_url: str
+    backup_codes: list[str]
+
+
+class RegisterVerifyRequest(BaseModel):
+    """Sent to POST /auth/register/verify to complete registration."""
+    challenge_token: str
+    otp: str

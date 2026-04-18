@@ -34,9 +34,18 @@ app.add_middleware(
 def on_startup():
     Path(settings.upload_dir).mkdir(parents=True, exist_ok=True)
     Base.metadata.create_all(bind=engine)
+    # Safe migration: add is_active column if it doesn't exist yet (idempotent)
+    try:
+        from sqlalchemy import text
+        with engine.connect() as conn:
+            conn.execute(text(
+                "ALTER TABLE users ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT TRUE"
+            ))
+            conn.commit()
+    except Exception as exc:
+        logger.warning("is_active migration skipped (may already exist): %s", exc)
     logger.info("Database tables ensured")
     if settings.prewarm_embeddings_on_startup:
-        # Optional pre-warm to avoid pulling large models during Render startup.
         try:
             from .rag.retriever_service import _get_model
             _get_model()

@@ -257,37 +257,55 @@ export default Results;
 const PassphraseModal = ({ open, onClose, onSubmit, passphrase, setPassphrase, passError, loading }) => {
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
-      <div className="bg-slate-900 border border-white/10 rounded-2xl shadow-xl max-w-md w-full p-6 space-y-4">
-        <h3 className="text-lg font-semibold text-white">Download Protected Report</h3>
-        <p className="text-sm text-slate-400">
-          Enter a passphrase to protect the downloaded report. You will need this passphrase to open it later.
-        </p>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      {/* Backdrop */}
+      <div
+        className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+        onClick={onClose}
+      />
+      {/* Modal — centered, not too wide */}
+      <div className="relative z-10 bg-[#0d1526] border border-white/[0.1] rounded-2xl shadow-[0_0_60px_rgba(6,182,212,0.1)] max-w-md w-full p-6 space-y-5">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h3 className="text-lg font-semibold text-white">Download Protected Report</h3>
+            <p className="text-sm text-slate-400 mt-1">
+              Set a passphrase to encrypt the PDF. You'll need it to open the file.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="text-slate-500 hover:text-white transition p-1 rounded-lg hover:bg-white/5 flex-shrink-0"
+          >
+            ✕
+          </button>
+        </div>
         <div className="space-y-2">
           <label className="text-sm text-slate-300">Passphrase</label>
           <input
             type="password"
             value={passphrase}
             onChange={(e) => setPassphrase(e.target.value)}
-            className="w-full bg-white/[0.04] border border-white/[0.08] rounded-xl px-4 py-3 text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-accent"
+            autoFocus
+            className="w-full bg-white/[0.04] border border-white/[0.1] rounded-xl px-4 py-3 text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/20 transition"
             placeholder="At least 6 characters"
           />
           {passError && <p className="text-xs text-red-300">{passError}</p>}
         </div>
-        <div className="flex justify-end gap-3 pt-1">
+        <div className="flex justify-end gap-3">
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 rounded-xl bg-white/[0.04] border border-white/[0.1] text-slate-200 hover:bg-white/[0.07] transition"
             disabled={loading}
+            className="px-4 py-2.5 rounded-xl bg-white/[0.04] border border-white/[0.1] text-slate-200 hover:bg-white/[0.08] transition text-sm"
           >
             Cancel
           </button>
           <button
             type="button"
             onClick={onSubmit}
-            disabled={loading}
-            className="px-4 py-2 rounded-xl bg-gradient-to-r from-cyan-400 to-blue-500 text-white font-semibold shadow-[0_0_12px_rgba(34,211,238,0.25)] hover:shadow-[0_0_18px_rgba(34,211,238,0.35)] transition disabled:opacity-60"
+            disabled={loading || !passphrase || passphrase.length < 6}
+            className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-semibold shadow-[0_0_14px_rgba(6,182,212,0.25)] hover:shadow-[0_0_20px_rgba(6,182,212,0.35)] transition text-sm disabled:opacity-50"
           >
             {loading ? 'Preparing...' : 'Download protected PDF'}
           </button>

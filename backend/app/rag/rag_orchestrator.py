@@ -289,9 +289,12 @@ def _fallback_fix(req: ExplainRequest, chunks: List[Dict[str, Any]], reason: str
 # ---------------------------------------------------------------------------
 
 def run_explain(db: Session, req: ExplainRequest) -> ExplainResponse:
+    import time
+    t_total = time.perf_counter()
     fallback = _fallback_content(req.type)
 
     # 1. Retrieve context
+    t0 = time.perf_counter()
     chunks = search_chunks(
         db,
         query=req.description or req.type,
@@ -300,40 +303,52 @@ def run_explain(db: Session, req: ExplainRequest) -> ExplainResponse:
         framework=req.framework,
         top_k=settings.rag_top_k,
     )
-    logger.info("[RAG explain] Retrieved %d chunks for finding_id=%s type=%r", len(chunks), req.finding_id, req.type)
+    logger.info("[RAG explain] retrieval=%.3fs chunks=%d finding_id=%s type=%r",
+                time.perf_counter() - t0, len(chunks), req.finding_id, req.type)
 
     # 2. Build prompt
+    t0 = time.perf_counter()
     kb_contexts = _chunks_to_kb_entries(chunks)
     prompt = build_explain_prompt(req, kb_contexts)
+    logger.info("[RAG explain] prompt_build=%.3fs prompt_len=%d", time.perf_counter() - t0, len(prompt))
 
-    # 3. Call Ollama
+    # 3. Call LLM
+    t0 = time.perf_counter()
     raw = _agent.send_prompt(prompt)
-    if not raw:
-        return _fallback_explain(req, chunks, "Ollama returned empty response (timeout or connection error)")
+    logger.info("[RAG explain] llm_call=%.3fs response_len=%d", time.perf_counter() - t0, len(raw) if raw else 0)
 
-    # 4. Log raw output always so failures are visible in logs
+    if not raw:
+        logger.warning("[RAG explain] total=%.3fs → fallback (empty LLM response)", time.perf_counter() - t_total)
+        return _fallback_explain(req, chunks, "LLM returned empty response (timeout or connection error)")
+
     logger.info("[RAG explain] Raw model output (%d chars): %r", len(raw), raw[:300])
 
-    # 5. Parse JSON — safe_json_loads tries 6 recovery stages before giving up
+    # 4. Parse JSON
+    t0 = time.perf_counter()
     parsed = _agent.safe_json_loads(raw)
+    logger.info("[RAG explain] json_parse=%.3fs success=%s", time.perf_counter() - t0, parsed is not None)
+
     if not isinstance(parsed, dict):
-        logger.warning(
-            "[RAG explain] JSON parse failed after all recovery stages. "
-            "finding_id=%s raw_preview=%r",
-            req.finding_id, raw[:300],
-        )
+        logger.warning("[RAG explain] JSON parse failed. finding_id=%s raw_preview=%r", req.finding_id, raw[:300])
+        logger.info("[RAG explain] total=%.3fs → fallback (parse failure)", time.perf_counter() - t_total)
         return _fallback_explain(req, chunks, f"JSON unrecoverable after 6 parse stages (raw len={len(raw)})")
 
-    # 6. Normalize and return
+    # 5. Normalize and return
     try:
-        return _normalize_explain(parsed, req, chunks, fallback)
+        result = _normalize_explain(parsed, req, chunks, fallback)
+        logger.info("[RAG explain] total=%.3fs source_mode=%s", time.perf_counter() - t_total, result.source_mode)
+        return result
     except Exception as exc:
         logger.error("[RAG explain] Normalization error for finding_id=%s: %s", req.finding_id, exc)
         return _fallback_explain(req, chunks, f"Normalization error: {exc}")
 
 
 def run_fix(db: Session, req: ExplainRequest) -> FixResponse:
+    import time
+    t_total = time.perf_counter()
+
     # 1. Retrieve context
+    t0 = time.perf_counter()
     chunks = search_chunks(
         db,
         query=req.description or req.type,
@@ -342,33 +357,37 @@ def run_fix(db: Session, req: ExplainRequest) -> FixResponse:
         framework=req.framework,
         top_k=settings.rag_top_k,
     )
-    logger.info("[RAG fix] Retrieved %d chunks for finding_id=%s type=%r", len(chunks), req.finding_id, req.type)
+    logger.info("[RAG fix] retrieval=%.3fs chunks=%d finding_id=%s type=%r",
+                time.perf_counter() - t0, len(chunks), req.finding_id, req.type)
 
     # 2. Build prompt
+    t0 = time.perf_counter()
     kb_contexts = _chunks_to_kb_entries(chunks)
     prompt = build_fix_prompt(req, kb_contexts)
+    logger.info("[RAG fix] prompt_build=%.3fs", time.perf_counter() - t0)
 
-    # 3. Call Ollama
+    # 3. Call LLM
+    t0 = time.perf_counter()
     raw = _agent.send_prompt(prompt)
-    if not raw:
-        return _fallback_fix(req, chunks, "Ollama returned empty response (timeout or connection error)")
+    logger.info("[RAG fix] llm_call=%.3fs response_len=%d", time.perf_counter() - t0, len(raw) if raw else 0)
 
-    # 4. Log raw output
+    if not raw:
+        logger.info("[RAG fix] total=%.3fs → fallback", time.perf_counter() - t_total)
+        return _fallback_fix(req, chunks, "LLM returned empty response (timeout or connection error)")
+
     logger.info("[RAG fix] Raw model output (%d chars): %r", len(raw), raw[:300])
 
-    # 5. Parse JSON
+    # 4. Parse JSON
     parsed = _agent.safe_json_loads(raw)
     if not isinstance(parsed, dict):
-        logger.warning(
-            "[RAG fix] JSON parse failed after all recovery stages. "
-            "finding_id=%s raw_preview=%r",
-            req.finding_id, raw[:300],
-        )
+        logger.warning("[RAG fix] JSON parse failed. finding_id=%s raw_preview=%r", req.finding_id, raw[:300])
         return _fallback_fix(req, chunks, f"JSON unrecoverable after 6 parse stages (raw len={len(raw)})")
 
-    # 6. Normalize and return
+    # 5. Normalize and return
     try:
-        return _normalize_fix(parsed, req, chunks)
+        result = _normalize_fix(parsed, req, chunks)
+        logger.info("[RAG fix] total=%.3fs source_mode=%s", time.perf_counter() - t_total, result.source_mode)
+        return result
     except Exception as exc:
         logger.error("[RAG fix] Normalization error for finding_id=%s: %s", req.finding_id, exc)
         return _fallback_fix(req, chunks, f"Normalization error: {exc}")

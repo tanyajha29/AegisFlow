@@ -51,8 +51,28 @@ export const AuthProvider = ({ children }) => {
     };
 
     const register = async (email, password) => {
-        await api.post('/auth/register', { email, password });
-        return login(email, password); // auto-login
+        // Step 1: initiate registration — returns challenge_token + QR
+        const { data } = await api.post('/auth/register', { email, password });
+        // Return the challenge data so the UI can show the QR setup screen
+        return {
+            registration_pending: true,
+            challenge_token: data.challenge_token,
+            qr_code_base64: data.qr_code_base64,
+            otpauth_url: data.otpauth_url,
+            backup_codes: data.backup_codes,
+        };
+    };
+
+    const verifyRegistration = async (challengeToken, otp) => {
+        // Step 2: verify OTP, activate account, get full token
+        const { data } = await api.post('/auth/register/verify', {
+            challenge_token: challengeToken,
+            otp,
+        });
+        applyToken(data.access_token);
+        const profile = await api.get('/auth/profile');
+        setUser(profile.data);
+        return true;
     };
 
     const verifyLoginMfa = async (challengeToken, otp) => {
@@ -98,6 +118,7 @@ export const AuthProvider = ({ children }) => {
         token,
         login,
         register,
+        verifyRegistration,
         logout,
         loading,
         verifyLoginMfa,

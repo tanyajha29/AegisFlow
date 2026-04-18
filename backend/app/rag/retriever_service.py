@@ -1,11 +1,20 @@
 """
 Semantic retrieval against pgvector-stored knowledge chunks.
+
+Model loading strategy:
+- SentenceTransformer is loaded ONCE at module import time into _model.
+- _get_model() returns the cached instance — never re-initialises.
+- HF_HOME / SENTENCE_TRANSFORMERS_HOME must point to a persistent volume
+  so the model files are not re-downloaded on every container restart.
+- Timing is logged for every encode call and every search call.
 """
 
 from __future__ import annotations
 
 import json
 import logging
+import os
+import time
 from typing import Any, Dict, List, Optional
 
 from sqlalchemy import text
@@ -17,23 +26,52 @@ logger = logging.getLogger(__name__)
 settings = get_settings()
 
 EMB_DIM = 384
-_model = None  # lazy-loaded to avoid crashing on import if package missing
+MODEL_NAME = "all-MiniLM-L6-v2"
+
+# ── Singleton model instance ──────────────────────────────────────────────────
+# Loaded once at module import time (when the worker process starts).
+# Never re-created inside request handlers.
+_model = None
+_model_load_error: Optional[str] = None
+
+
+def _load_model_once() -> None:
+    """
+    Load SentenceTransformer into the module-level singleton.
+    Called once during module initialisation — NOT inside request handlers.
+    HF_HOME / SENTENCE_TRANSFORMERS_HOME must be set to a persistent path
+    so the model is cached across container restarts.
+    """
+    global _model, _model_load_error
+    if _model is not None:
+        return  # already loaded
+
+    cache_dir = os.environ.get("SENTENCE_TRANSFORMERS_HOME") or os.environ.get("HF_HOME")
+    t0 = time.perf_counter()
+    try:
+        from sentence_transformers import SentenceTransformer  # type: ignore
+        _model = SentenceTransformer(MODEL_NAME, cache_folder=cache_dir or None)
+        elapsed = time.perf_counter() - t0
+        logger.info(
+            "SentenceTransformer loaded: model=%s dim=%d elapsed=%.2fs cache=%s",
+            MODEL_NAME, EMB_DIM, elapsed, cache_dir or "default (~/.cache/huggingface)",
+        )
+    except Exception as exc:
+        _model_load_error = str(exc)
+        logger.error(
+            "SentenceTransformer load failed (vector retrieval unavailable): %s", exc
+        )
+
+
+# Load immediately when this module is imported by the worker process.
+# This happens once at startup, not per-request.
+_load_model_once()
 
 
 def _get_model():
-    """Lazy-load SentenceTransformer so import errors don't break the whole app."""
-    global _model
-    if _model is None:
-        try:
-            from sentence_transformers import SentenceTransformer  # type: ignore
-            _model = SentenceTransformer("all-MiniLM-L6-v2")
-            logger.info("SentenceTransformer loaded (all-MiniLM-L6-v2, dim=%d)", EMB_DIM)
-        except Exception as exc:
-            logger.error(
-                "Failed to load SentenceTransformer: %s. "
-                "Vector retrieval will be unavailable. Install sentence-transformers.",
-                exc,
-            )
+    """Return the cached model instance. Never re-loads."""
+    if _model is None and _model_load_error:
+        logger.warning("SentenceTransformer unavailable: %s", _model_load_error)
     return _model
 
 
@@ -47,11 +85,13 @@ def _encode_query(query: str) -> Optional[List[float]]:
     model = _get_model()
     if model is None:
         return None
+    t0 = time.perf_counter()
     try:
         vec = model.encode([query], convert_to_numpy=True, normalize_embeddings=True)[0]
+        logger.info("Embedding encode: query_len=%d elapsed=%.3fs", len(query), time.perf_counter() - t0)
         return [float(v) for v in vec]
     except Exception as exc:
-        logger.error("Embedding encode failed: %s", exc)
+        logger.error("Embedding encode failed (%.3fs): %s", time.perf_counter() - t0, exc)
         return None
 
 

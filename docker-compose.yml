@@ -39,6 +39,10 @@ services:
       - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
       - OPENROUTER_SITE_URL=${OPENROUTER_SITE_URL:-http://localhost:5173}
       - OPENROUTER_SITE_NAME=${OPENROUTER_SITE_NAME:-DristiScan}
+      # Model cache — must match the volume mount path so downloads persist
+      - HF_HOME=/root/.cache/huggingface
+      - SENTENCE_TRANSFORMERS_HOME=/root/.cache/huggingface/sentence_transformers
+      - PREWARM_EMBEDDINGS_ON_STARTUP=true
     depends_on:
       - db
     volumes:

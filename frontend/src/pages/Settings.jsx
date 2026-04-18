@@ -24,18 +24,20 @@ const Toggle = ({ label, description, enabled, onToggle }) => (
   </div>
 );
 
-const SectionHeader = ({ icon: Icon, title, description }) => (
-  <div className="flex items-start gap-3 mb-5">
-    <div className="h-9 w-9 rounded-xl bg-accent/10 border border-accent/20 flex items-center justify-center flex-shrink-0">
-      <Icon className="h-5 w-5 text-accent" />
+const SectionHeader = ({ icon, title, description }) => {
+  const Icon = icon;
+  return (
+    <div className="flex items-start gap-3 mb-5">
+      <div className="h-9 w-9 rounded-xl bg-accent/10 border border-accent/20 flex items-center justify-center flex-shrink-0">
+        <Icon className="h-5 w-5 text-accent" />
+      </div>
+      <div>
+        <h2 className="text-sm font-semibold text-white">{title}</h2>
+        {description && <p className="text-xs text-slate-500 mt-0.5">{description}</p>}
+      </div>
     </div>
-    <div>
-      <h2 className="text-sm font-semibold text-white">{title}</h2>
-      {description && <p className="text-xs text-slate-500 mt-0.5">{description}</p>}
-    </div>
-  </div>
-);
-
+  );
+};
 const Settings = () => {
   const { user, startMfaSetup, verifyMfa, disableMfa } = useAuth();
   const [dark, setDark] = useState(true);
@@ -45,7 +47,6 @@ const Settings = () => {
   const [mfaSetup, setMfaSetup] = useState(null);
   const [mfaOtp, setMfaOtp] = useState('');
   const [disableOtp, setDisableOtp] = useState('');
-  const [backupCodes, setBackupCodes] = useState([]);
   const [statusMsg, setStatusMsg] = useState('');
   const [error, setError] = useState('');
 
@@ -62,7 +63,6 @@ const Settings = () => {
     try {
       const data = await startMfaSetup();
       setMfaSetup(data);
-      setBackupCodes(data.backup_codes || []);
     } catch (err) {
       setError(err?.response?.data?.detail || 'Could not start MFA setup.');
     }
@@ -89,7 +89,6 @@ const Settings = () => {
       setStatusMsg('MFA disabled for this account.');
       setDisableOtp('');
       setMfaSetup(null);
-      setBackupCodes([]);
     } catch (err) {
       setError(err?.response?.data?.detail || 'Could not disable MFA.');
     }
@@ -139,85 +138,27 @@ const Settings = () => {
         <SectionHeader
           icon={KeyIcon}
           title="Multi-factor Authentication"
-          description="Protect account access with an authenticator app."
+          description="Your account is protected with TOTP-based MFA."
         />
-        <div className="flex items-center gap-2 mb-3">
+        <div className="flex items-center gap-2 mb-4">
           <span
             className={`px-3 py-1 rounded-full text-xs font-semibold ${
-              user?.mfa_enabled ? 'bg-green-500/15 text-green-300 border border-green-500/30' : 'bg-slate-800/80 text-slate-300 border border-slate-700/60'
+              user?.mfa_enabled
+                ? 'bg-green-500/15 text-green-300 border border-green-500/30'
+                : 'bg-amber-500/15 text-amber-300 border border-amber-500/30'
             }`}
           >
-            {user?.mfa_enabled ? 'Enabled' : 'Disabled'}
+            {user?.mfa_enabled ? '✓ Enabled' : '⚠ Not configured'}
           </span>
           {statusMsg && <span className="text-xs text-green-300">{statusMsg}</span>}
           {error && <span className="text-xs text-red-300">{error}</span>}
         </div>
 
-        {!user?.mfa_enabled && (
+        {user?.mfa_enabled ? (
           <div className="space-y-4">
             <p className="text-sm text-slate-300">
-              Scan a QR code with Google Authenticator, Microsoft Authenticator, or Authy, then confirm with the 6-digit code.
-            </p>
-            {!mfaSetup ? (
-              <button
-                onClick={beginMfaSetup}
-                className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-cyan-400 to-blue-600 text-white text-sm font-semibold shadow-[0_0_12px_rgba(34,211,238,0.25)] hover:shadow-[0_0_20px_rgba(34,211,238,0.4)] transition"
-              >
-                Start MFA setup
-              </button>
-            ) : (
-              <div className="grid md:grid-cols-2 gap-5">
-                <div className="space-y-3">
-                  <p className="text-xs text-slate-400 uppercase tracking-wide">Scan QR</p>
-                  <div className="rounded-2xl border border-white/[0.08] bg-white/[0.03] p-4 flex items-center justify-center">
-                    <img src={mfaSetup.qr_code_base64} alt="MFA QR code" className="w-48 h-48 object-contain" />
-                  </div>
-                  <p className="text-[11px] text-slate-500 break-all bg-white/[0.03] border border-white/[0.06] rounded-xl p-2">
-                    {mfaSetup.otpauth_url}
-                  </p>
-                </div>
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <label className="text-sm text-slate-300">Enter 6-digit code</label>
-                    <input
-                      value={mfaOtp}
-                      onChange={(e) => setMfaOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                      inputMode="numeric"
-                      pattern="[0-9]*"
-                      className="w-full bg-white/[0.04] border border-white/[0.08] rounded-xl px-4 py-3 text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-accent tracking-widest font-mono"
-                      placeholder="123456"
-                    />
-                  </div>
-                  {!!backupCodes.length && (
-                    <div>
-                      <p className="text-xs text-slate-400 uppercase tracking-wide mb-2">Backup codes (save securely)</p>
-                      <div className="grid grid-cols-2 gap-2">
-                        {backupCodes.map((code) => (
-                          <span key={code} className="text-sm font-mono text-slate-200 px-3 py-2 rounded-lg bg-white/[0.04] border border-white/[0.08]">
-                            {code}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  <button
-                    onClick={confirmMfaSetup}
-                    className="w-full py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 text-white font-semibold shadow-[0_0_12px_rgba(16,185,129,0.25)] hover:shadow-[0_0_18px_rgba(16,185,129,0.35)] transition"
-                    disabled={!mfaOtp}
-                    type="button"
-                  >
-                    Verify & enable MFA
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
-        {user?.mfa_enabled && (
-          <div className="space-y-3">
-            <p className="text-sm text-slate-300">
-              MFA is active. Use your authenticator app at login. Enter a fresh code below to disable if needed.
+              MFA is active on your account. Use your authenticator app at every login.
+              Enter a fresh code below only if you need to disable MFA.
             </p>
             <div className="flex flex-col sm:flex-row gap-3">
               <input
@@ -237,6 +178,50 @@ const Settings = () => {
                 Disable MFA
               </button>
             </div>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <p className="text-sm text-slate-300">
+              MFA is not configured. Set it up now to secure your account.
+            </p>
+            {!mfaSetup ? (
+              <button
+                onClick={beginMfaSetup}
+                className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-cyan-400 to-blue-600 text-white text-sm font-semibold shadow-[0_0_12px_rgba(34,211,238,0.25)] hover:shadow-[0_0_20px_rgba(34,211,238,0.4)] transition"
+              >
+                Set up MFA
+              </button>
+            ) : (
+              <div className="grid md:grid-cols-2 gap-5">
+                <div className="space-y-3">
+                  <p className="text-xs text-slate-400 uppercase tracking-wide">Scan QR</p>
+                  <div className="rounded-2xl border border-white/[0.08] bg-white p-3 flex items-center justify-center">
+                    <img src={mfaSetup.qr_code_base64} alt="MFA QR code" className="w-48 h-48 object-contain" />
+                  </div>
+                </div>
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <label className="text-sm text-slate-300">Enter 6-digit code</label>
+                    <input
+                      value={mfaOtp}
+                      onChange={(e) => setMfaOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      className="w-full bg-white/[0.04] border border-white/[0.08] rounded-xl px-4 py-3 text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-accent tracking-widest font-mono"
+                      placeholder="123456"
+                    />
+                  </div>
+                  <button
+                    onClick={confirmMfaSetup}
+                    className="w-full py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 text-white font-semibold transition"
+                    disabled={!mfaOtp}
+                    type="button"
+                  >
+                    Verify & enable MFA
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </GlassCard>
