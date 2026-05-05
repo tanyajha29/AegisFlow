@@ -62,7 +62,11 @@ services:
       - key: RAG_DEBUG
         value: "false"
       - key: PREWARM_EMBEDDINGS_ON_STARTUP
-        value: "false"
+        value: "true"
+      - key: HF_HOME
+        value: /opt/render/.cache/huggingface
+      - key: SENTENCE_TRANSFORMERS_HOME
+        value: /opt/render/.cache/huggingface
       - key: AI_INJECTION_ENABLED
         value: "false"
       - key: AI_SECRETS_ENABLED

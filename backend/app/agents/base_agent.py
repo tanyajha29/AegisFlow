@@ -7,24 +7,20 @@ import re
 from typing import Any, Optional
 
 import requests
-from requests import Response
 
 from app.agents.schemas import AgentResult
 
 logger = logging.getLogger(__name__)
+_HTTP_SESSION = requests.Session()
 
-# ── defaults ────────────────────────────────────────────────────────────────
-
-DEFAULT_PROVIDER        = "openrouter"
-DEFAULT_MODEL           = "openrouter/auto"
+DEFAULT_PROVIDER = "openrouter"
+DEFAULT_MODEL = "openrouter/auto"
 DEFAULT_TIMEOUT_SECONDS = 120
-DEFAULT_TEMPERATURE     = 0
+DEFAULT_TEMPERATURE = 0
 
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 OPENROUTER_ENDPOINT = f"{OPENROUTER_BASE_URL}/chat/completions"
 
-# Strict system prompt sent on every OpenRouter call.
-# Forces JSON-only output regardless of which free model is selected.
 STRICT_JSON_SYSTEM_PROMPT = (
     "You are a security analysis assistant for DristiScan. "
     "Return ONLY valid JSON. "
@@ -36,18 +32,8 @@ STRICT_JSON_SYSTEM_PROMPT = (
 )
 
 
-# ── helpers ─────────────────────────────────────────────────────────────────
-
 def _resolve_model() -> str:
-    """
-    Priority: LLM_MODEL env var → OLLAMA_MODEL env var (legacy) → default.
-    Allows switching models without code changes.
-    """
-    return (
-        os.getenv("LLM_MODEL")
-        or os.getenv("OLLAMA_MODEL")
-        or DEFAULT_MODEL
-    ).strip()
+    return (os.getenv("LLM_MODEL") or os.getenv("OLLAMA_MODEL") or DEFAULT_MODEL).strip()
 
 
 def _resolve_timeout() -> float:
@@ -68,25 +54,20 @@ def _resolve_temperature() -> float:
         return float(DEFAULT_TEMPERATURE)
 
 
-# ── BaseAgent ────────────────────────────────────────────────────────────────
+def _resolve_max_tokens() -> Optional[int]:
+    val = os.getenv("LLM_MAX_TOKENS")
+    if not val:
+        return None
+    try:
+        parsed = int(val)
+    except ValueError:
+        return None
+    return parsed if parsed > 0 else None
+
 
 class BaseAgent:
     """
     LLM caller that routes to OpenRouter (default) or Ollama (legacy fallback).
-
-    Provider selection via env var:
-      LLM_PROVIDER=openrouter  → uses OpenRouter /chat/completions (default)
-      LLM_PROVIDER=ollama      → uses local Ollama /api/generate (legacy)
-
-    Key env vars:
-      LLM_PROVIDER            openrouter | ollama
-      LLM_MODEL               model identifier (e.g. openrouter/auto)
-      LLM_TIMEOUT_SECONDS     request timeout in seconds
-      LLM_TEMPERATURE         sampling temperature (0 = deterministic)
-      OPENROUTER_API_KEY      required for OpenRouter
-      OPENROUTER_SITE_URL     sent as HTTP-Referer header
-      OPENROUTER_SITE_NAME    sent as X-Title header
-      RAG_DEBUG               true/false — verbose logging
     """
 
     def __init__(
@@ -96,55 +77,47 @@ class BaseAgent:
         model: Optional[str] = None,
         url: Optional[str] = None,
         timeout_seconds: Optional[float] = None,
+        temperature: Optional[float] = None,
+        max_tokens: Optional[int] = None,
     ) -> None:
         self.name = name or "Base Agent"
         self.system_instructions = (system_instructions or "").strip()
         self.model = (model or _resolve_model()).strip()
         self.timeout = timeout_seconds or _resolve_timeout()
-        self.temperature = _resolve_temperature()
+        self.temperature = _resolve_temperature() if temperature is None else float(temperature)
+        self.max_tokens = _resolve_max_tokens() if max_tokens is None else max_tokens
         self._debug = os.getenv("RAG_DEBUG", "false").lower() in ("1", "true", "yes")
 
-        # Provider routing
         self._provider = os.getenv("LLM_PROVIDER", DEFAULT_PROVIDER).lower().strip()
-
-        # OpenRouter config
         self._api_key = os.getenv("OPENROUTER_API_KEY", "")
         self._site_url = os.getenv("OPENROUTER_SITE_URL", "http://localhost:5173")
         self._site_name = os.getenv("OPENROUTER_SITE_NAME", "DristiScan")
 
-        # Legacy Ollama config (only used when LLM_PROVIDER=ollama)
-        _raw_ollama = url or os.getenv("OLLAMA_URL") or "http://localhost:11434"
-        self._ollama_url = self._normalize_ollama_url(_raw_ollama)
+        raw_ollama = url or os.getenv("OLLAMA_URL") or "http://localhost:11434"
+        self._ollama_url = self._normalize_ollama_url(raw_ollama)
 
         logger.info(
-            "[%s] Initialized — provider=%s model=%s timeout=%ss",
-            self.name, self._provider, self.model, self.timeout,
+            "[%s] Initialized - provider=%s model=%s timeout=%ss max_tokens=%s",
+            self.name,
+            self._provider,
+            self.model,
+            self.timeout,
+            self.max_tokens,
         )
 
-    # ── routing ─────────────────────────────────────────────────────────────
-
     def send_prompt(self, prompt: str) -> str:
-        """
-        Send a prompt to the configured LLM provider.
-        Returns raw text content, or empty string on any failure.
-        """
         if self._provider == "ollama":
             return self._send_ollama(prompt)
         return self._send_openrouter(prompt)
 
-    # ── OpenRouter ──────────────────────────────────────────────────────────
-
     def _send_openrouter(self, prompt: str) -> str:
         if not self._api_key:
             logger.error(
-                "[%s] OPENROUTER_API_KEY is not set. "
-                "Set it in .env or docker-compose environment.",
+                "[%s] OPENROUTER_API_KEY is not set. Set it in .env or docker-compose environment.",
                 self.name,
             )
             return ""
 
-        # System message: always use STRICT_JSON_SYSTEM_PROMPT.
-        # If caller passed extra system_instructions, append them.
         system_content = STRICT_JSON_SYSTEM_PROMPT
         if self.system_instructions:
             system_content = f"{STRICT_JSON_SYSTEM_PROMPT}\n\n{self.system_instructions}"
@@ -153,27 +126,33 @@ class BaseAgent:
             "model": self.model,
             "messages": [
                 {"role": "system", "content": system_content},
-                {"role": "user",   "content": prompt},
+                {"role": "user", "content": prompt},
             ],
             "temperature": self.temperature,
         }
+        if self.max_tokens is not None:
+            payload["max_tokens"] = self.max_tokens
+
         headers = {
             "Authorization": f"Bearer {self._api_key}",
-            "Content-Type":  "application/json",
-            "HTTP-Referer":  self._site_url,
-            "X-Title":       self._site_name,
+            "Content-Type": "application/json",
+            "HTTP-Referer": self._site_url,
+            "X-Title": self._site_name,
         }
 
         if self._debug:
             logger.debug(
-                "[%s] OpenRouter request — model=%s url=%s\nPrompt preview:\n%s",
-                self.name, self.model, OPENROUTER_ENDPOINT, prompt[:600],
+                "[%s] OpenRouter request model=%s url=%s prompt_len=%d",
+                self.name,
+                self.model,
+                OPENROUTER_ENDPOINT,
+                len(prompt),
             )
         else:
             logger.info("[%s] Calling OpenRouter model=%s timeout=%ss", self.name, self.model, self.timeout)
 
         try:
-            resp = requests.post(
+            resp = _HTTP_SESSION.post(
                 OPENROUTER_ENDPOINT,
                 json=payload,
                 headers=headers,
@@ -189,7 +168,8 @@ class BaseAgent:
         except requests.HTTPError as exc:
             logger.error(
                 "[%s] OpenRouter HTTP %s: %s",
-                self.name, exc.response.status_code if exc.response else "?",
+                self.name,
+                exc.response.status_code if exc.response else "?",
                 exc.response.text[:300] if exc.response else str(exc),
             )
             return ""
@@ -203,15 +183,10 @@ class BaseAgent:
             logger.warning("[%s] OpenRouter response not JSON-decodable", self.name)
             return ""
 
-        # Extract content from choices[0].message.content only.
-        # Deliberately ignore reasoning / reasoning_details / other fields.
         try:
             content = data["choices"][0]["message"]["content"]
         except (KeyError, IndexError, TypeError):
-            logger.warning(
-                "[%s] Unexpected OpenRouter response shape: %s",
-                self.name, str(data)[:200],
-            )
+            logger.warning("[%s] Unexpected OpenRouter response shape: %s", self.name, str(data)[:200])
             return ""
 
         if not isinstance(content, str):
@@ -220,26 +195,35 @@ class BaseAgent:
 
         result = content.strip()
         if self._debug:
-            logger.debug("[%s] Raw OpenRouter response (%d chars):\n%s", self.name, len(result), result[:1000])
+            logger.debug("[%s] OpenRouter response_len=%d", self.name, len(result))
         else:
             logger.info("[%s] OpenRouter responded (%d chars)", self.name, len(result))
-
         return result
-
-    # ── Ollama (legacy) ─────────────────────────────────────────────────────
 
     def _send_ollama(self, prompt: str) -> str:
         if self._debug:
             logger.debug(
-                "[%s] Ollama request — model=%s url=%s\nPrompt preview:\n%s",
-                self.name, self.model, self._ollama_url, prompt[:600],
+                "[%s] Ollama request model=%s url=%s prompt_len=%d",
+                self.name,
+                self.model,
+                self._ollama_url,
+                len(prompt),
             )
         else:
             logger.info("[%s] Calling Ollama model=%s timeout=%ss", self.name, self.model, self.timeout)
 
-        payload = {"model": self.model, "prompt": prompt, "stream": False, "format": "json"}
+        payload: dict[str, Any] = {
+            "model": self.model,
+            "prompt": prompt,
+            "stream": False,
+            "format": "json",
+            "options": {"temperature": self.temperature},
+        }
+        if self.max_tokens is not None:
+            payload["options"]["num_predict"] = self.max_tokens
+
         try:
-            resp = requests.post(self._ollama_url, json=payload, timeout=self.timeout)
+            resp = _HTTP_SESSION.post(self._ollama_url, json=payload, timeout=self.timeout)
             resp.raise_for_status()
         except requests.Timeout:
             logger.error("[%s] Ollama timed out after %ss (url=%s)", self.name, self.timeout, self._ollama_url)
@@ -264,45 +248,30 @@ class BaseAgent:
 
         result = text.strip()
         if self._debug:
-            logger.debug("[%s] Raw Ollama response (%d chars):\n%s", self.name, len(result), result[:1000])
+            logger.debug("[%s] Ollama response_len=%d", self.name, len(result))
         else:
             logger.info("[%s] Ollama responded (%d chars)", self.name, len(result))
         return result
 
-    # ── JSON parsing ────────────────────────────────────────────────────────
-
     @staticmethod
     def safe_json_loads(text: str) -> Any:
-        """
-        6-stage JSON recovery. Handles:
-        1. Clean JSON
-        2. Markdown triple-fences  ```json ... ```
-        3. Inline backtick fence   `{...}`
-        4. JSON object embedded in prose  (first { … last })
-        5. Trailing-comma repair
-        6. JSON array embedded in prose   (first [ … last ])
-        Returns None only after all stages fail.
-        """
         if not text:
             logger.debug("safe_json_loads: empty input")
             return None
 
-        # Stage 1
         try:
             return json.loads(text)
         except json.JSONDecodeError:
             pass
 
-        # Stage 2 — triple fence
         fence = re.search(r"```(?:json)?\s*\n?([\s\S]*?)```", text, re.IGNORECASE)
         if fence:
             candidate = fence.group(1).strip()
             try:
                 return json.loads(candidate)
             except json.JSONDecodeError:
-                text = candidate  # narrow scope for later stages
+                text = candidate
 
-        # Stage 3 — inline backtick
         inline = re.search(r"`(\{[\s\S]*?\})`", text)
         if inline:
             try:
@@ -310,9 +279,8 @@ class BaseAgent:
             except json.JSONDecodeError:
                 pass
 
-        # Stage 4 + 5 — first { … last }
         obj_start = text.find("{")
-        obj_end   = text.rfind("}")
+        obj_end = text.rfind("}")
         if obj_start != -1 and obj_end > obj_start:
             candidate = text[obj_start : obj_end + 1]
             try:
@@ -324,9 +292,8 @@ class BaseAgent:
                 except json.JSONDecodeError:
                     pass
 
-        # Stage 6 — first [ … last ]
         arr_start = text.find("[")
-        arr_end   = text.rfind("]")
+        arr_end = text.rfind("]")
         if arr_start != -1 and arr_end > arr_start:
             candidate = text[arr_start : arr_end + 1]
             try:
@@ -340,11 +307,10 @@ class BaseAgent:
 
         logger.warning(
             "safe_json_loads: all 6 recovery stages failed (len=%d, preview=%r)",
-            len(text), text[:150],
+            len(text),
+            text[:150],
         )
         return None
-
-    # ── utilities ────────────────────────────────────────────────────────────
 
     @staticmethod
     def ensure_list_of_dicts(payload: Any) -> list[dict[str, Any]]:
@@ -365,8 +331,6 @@ class BaseAgent:
             return f"{cleaned}/generate"
         return f"{cleaned}/api/generate" if cleaned else "http://localhost:11434/api/generate"
 
-    # ── backwards-compatible runner ──────────────────────────────────────────
-
     def build_prompt(self, code_snippet: str, task: str, instructions: Optional[str] = None) -> str:
         parts = []
         if self.system_instructions:
@@ -381,27 +345,26 @@ class BaseAgent:
 
     def run(self, code_snippet: str, task: str, instructions: Optional[str] = None) -> AgentResult:
         prompt = self.build_prompt(code_snippet, task, instructions)
-        raw    = self.send_prompt(prompt)
+        raw = self.send_prompt(prompt)
         parsed = self.safe_json_loads(raw)
         if parsed is None:
-            return AgentResult(
-                agent=self.name, findings=[], logs=[f"[{self.name}] Invalid or empty response."]
-            )
+            return AgentResult(agent=self.name, findings=[], logs=[f"[{self.name}] Invalid or empty response."])
         try:
             result = AgentResult.model_validate(parsed)
         except Exception as exc:
             logger.warning("Agent %s returned invalid payload: %s", self.name, exc)
             return AgentResult(
-                agent=self.name, findings=[], logs=[f"[{self.name}] Invalid response ignored: {exc}"]
+                agent=self.name,
+                findings=[],
+                logs=[f"[{self.name}] Invalid response ignored: {exc}"],
             )
         if not result.agent:
             result.agent = self.name
         return result
 
 
-# Backwards compatibility
 class TestEchoAgent(BaseAgent):
     def analyze(self, text: str) -> list[dict[str, Any]]:
-        raw    = self.send_prompt(f"Echo back an empty JSON array. Input length: {len(text)}")
+        raw = self.send_prompt(f"Echo back an empty JSON array. Input length: {len(text)}")
         parsed = self.safe_json_loads(raw)
         return self.ensure_list_of_dicts(parsed)

@@ -2,31 +2,39 @@ from __future__ import annotations
 
 from typing import List
 
+from app.config import get_settings
+
 from .schemas import ExplainRequest, KBEntry
 
-# Prepended to every RAG prompt. Tested against qwen2.5-coder and llama3.1.
+settings = get_settings()
+
 _SYSTEM_HEADER = """\
-You are a security analysis assistant. You MUST respond with ONLY a valid JSON object.
-STRICT RULES — violation will break the system:
-- Output ONLY the JSON object, nothing else
-- Do NOT write any text before the opening {
-- Do NOT write any text after the closing }
-- Do NOT use markdown, code fences, or backticks
-- Do NOT add explanations, comments, or apologies
-- Every string value must be on one line (no raw newlines inside strings — use \\n)
-- The response must be parseable by Python json.loads() with zero modification\
+Return only a valid JSON object.
+No markdown, no code fences, no prose outside the JSON.
+Keep each string on one line and use \\n inside strings when needed.\
 """
 
 
-def _format_context(contexts: List[KBEntry], max_chars: int = 600) -> str:
+def _format_context(contexts: List[KBEntry]) -> str:
     if not contexts:
         return "No context available."
+
+    max_chunk_chars = max(120, settings.rag_prompt_max_chunk_chars)
+    max_total_chars = max(max_chunk_chars, settings.rag_prompt_max_total_chars)
     lines = []
+    total_chars = 0
+
     for idx, ctx in enumerate(contexts, start=1):
         snippet = ctx.content.strip().replace("\n", " ")
-        if len(snippet) > max_chars:
-            snippet = snippet[:max_chars] + "..."
-        lines.append(f"{idx}. [{ctx.source}] {ctx.title}: {snippet}")
+        if len(snippet) > max_chunk_chars:
+            snippet = snippet[:max_chunk_chars].rstrip() + "..."
+        line = f"{idx}. [{ctx.source}] {ctx.title}: {snippet}"
+        projected = total_chars + len(line)
+        if lines and projected > max_total_chars:
+            break
+        lines.append(line)
+        total_chars = projected
+
     return "\n".join(lines)
 
 
@@ -34,8 +42,6 @@ def build_explain_prompt(finding: ExplainRequest, contexts: List[KBEntry]) -> st
     ctx_count = len(contexts)
     context_text = _format_context(contexts)
 
-    # Build the exact JSON template with the finding_id pre-filled
-    # so the model just needs to fill in the string values.
     json_template = (
         "{\n"
         f'  "finding_id": "{finding.finding_id}",\n'
@@ -46,25 +52,24 @@ def build_explain_prompt(finding: ExplainRequest, contexts: List[KBEntry]) -> st
         '  "exploit_scenario": "FILL: concrete attack scenario",\n'
         '  "fix_recommendation": "FILL: actionable remediation steps",\n'
         '  "secure_example": "FILL: short secure code example",\n'
-        f'  "references": [{{"label": "FILL", "source": "FILL"}}],\n'
+        '  "references": [{"label": "FILL", "source": "FILL"}],\n'
         f'  "retrieved_context_count": {ctx_count}\n'
         "}"
     )
 
     return (
         f"{_SYSTEM_HEADER}\n\n"
-        "FINDING TO ANALYZE:\n"
+        "Analyze this finding.\n"
         f"Type: {finding.type}\n"
         f"Severity: {finding.severity}\n"
         f"Language: {finding.language or 'unknown'}\n"
         f"Framework: {finding.framework or 'unknown'}\n"
-        f"File: {finding.file or 'unknown'}, Line: {finding.line or 'unknown'}\n"
+        f"Location: {finding.file or 'unknown'}:{finding.line or 'unknown'}\n"
         f"Code: {(finding.code_snippet or 'N/A').strip()}\n"
         f"Description: {finding.description or 'N/A'}\n\n"
-        "KNOWLEDGE BASE CONTEXT (use ONLY these sources for references):\n"
+        "Use only these sources for references:\n"
         f"{context_text}\n\n"
-        "Fill in the JSON template below. Replace every FILL value. "
-        "Output ONLY the completed JSON, nothing else:\n\n"
+        "Fill every FILL value in this JSON template and return only the completed JSON:\n\n"
         f"{json_template}"
     )
 
@@ -81,30 +86,28 @@ def build_fix_prompt(finding: ExplainRequest, contexts: List[KBEntry]) -> str:
         '  "why_this_fix_is_safer": "FILL: why this eliminates the vulnerability",\n'
         '  "fixed_code": "FILL: corrected code snippet",\n'
         '  "notes": ["FILL: follow-up step 1", "FILL: follow-up step 2"],\n'
-        f'  "references": [{{"label": "FILL", "source": "FILL"}}],\n'
+        '  "references": [{"label": "FILL", "source": "FILL"}],\n'
         f'  "retrieved_context_count": {ctx_count}\n'
         "}"
     )
 
     return (
         f"{_SYSTEM_HEADER}\n\n"
-        "FINDING TO FIX:\n"
+        "Fix this finding.\n"
         f"Type: {finding.type}\n"
         f"Severity: {finding.severity}\n"
         f"Language: {finding.language or 'unknown'}\n"
         f"Framework: {finding.framework or 'unknown'}\n"
-        f"File: {finding.file or 'unknown'}, Line: {finding.line or 'unknown'}\n"
+        f"Location: {finding.file or 'unknown'}:{finding.line or 'unknown'}\n"
         f"Code: {(finding.code_snippet or 'N/A').strip()}\n"
         f"Description: {finding.description or 'N/A'}\n\n"
-        "KNOWLEDGE BASE CONTEXT (use ONLY these sources for references):\n"
+        "Use only these sources for references:\n"
         f"{context_text}\n\n"
-        "Fill in the JSON template below. Replace every FILL value. "
-        "fixed_code must be in the same language as the finding. "
-        "Output ONLY the completed JSON, nothing else:\n\n"
+        "Fill every FILL value in this JSON template. fixed_code must stay in the same language. "
+        "Return only the completed JSON:\n\n"
         f"{json_template}"
     )
 
 
-# Backward-compatible alias used by orchestrator.py
 def build_prompt(finding: ExplainRequest, contexts: List[KBEntry]) -> str:
     return build_explain_prompt(finding, contexts)

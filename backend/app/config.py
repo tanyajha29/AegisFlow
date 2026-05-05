@@ -1,3 +1,4 @@
+import os
 from functools import lru_cache
 from pathlib import Path
 from pydantic import Field, AnyHttpUrl, field_validator
@@ -14,6 +15,18 @@ def _default_upload_dir() -> str:
 
 def _default_rag_kb_path() -> str:
     return str(BACKEND_DIR / "app" / "rag" / "kb")
+
+
+def _default_hf_home() -> str:
+    if os.environ.get("HF_HOME"):
+        return os.environ["HF_HOME"]
+    if os.environ.get("RENDER") == "true":
+        return "/opt/render/.cache/huggingface"
+    return str(Path.home() / ".cache" / "huggingface")
+
+
+def _default_sentence_transformers_home() -> str:
+    return os.environ.get("SENTENCE_TRANSFORMERS_HOME") or _default_hf_home()
 
 
 def _default_report_logo_path() -> str:
@@ -66,6 +79,8 @@ class Settings(BaseSettings):
     llm_model: str = Field(default="openrouter/auto", description="LLM model identifier")
     llm_timeout_seconds: float = Field(default=120.0, description="LLM request timeout")
     llm_temperature: float = Field(default=0.0, description="LLM sampling temperature")
+    rag_llm_temperature: float = Field(default=0.2, description="Sampling temperature for /rag/explain and /rag/fix")
+    rag_llm_max_tokens: int = Field(default=320, description="Maximum completion tokens for RAG responses")
     openrouter_api_key: str = Field(default="", description="OpenRouter API key")
     openrouter_base_url: str = Field(default="https://openrouter.ai/api/v1", description="OpenRouter base URL")
     openrouter_site_url: str = Field(default="http://localhost:5173", description="Sent as HTTP-Referer")
@@ -73,7 +88,12 @@ class Settings(BaseSettings):
     fernet_key: str | None = Field(default=None, description="Fernet key for encrypting MFA secrets")
     report_logo_path: str = Field(default_factory=_default_report_logo_path, description="Path to the DristiScan logo used in PDF reports")
     rag_debug: bool = Field(default=False, description="Enable verbose RAG debug logging")
-    prewarm_embeddings_on_startup: bool = Field(default=False, description="Warm the embedding model during startup")
+    prewarm_embeddings_on_startup: bool = Field(default=True, description="Warm the embedding model during startup")
+    hf_home: str = Field(default_factory=_default_hf_home, description="Cache directory for Hugging Face model artifacts")
+    sentence_transformers_home: str = Field(
+        default_factory=_default_sentence_transformers_home,
+        description="Cache directory for SentenceTransformer model artifacts",
+    )
     ai_injection_enabled: bool = Field(default=False, description="Enable Injection Agent (Phase 2)")
     ai_secrets_enabled: bool = Field(default=False, description="Enable Secrets Agent (Phase 3)")
     ai_auth_enabled: bool = Field(default=False, description="Enable Auth Agent (Phase 4)")
@@ -82,6 +102,12 @@ class Settings(BaseSettings):
     ai_report_enabled: bool = Field(default=True, description="Enable Report Agent (Phase 9)")
     rag_kb_path: str = Field(default_factory=_default_rag_kb_path)
     rag_top_k: int = Field(default=5, description="Top-k KB chunks to retrieve for RAG explanations")
+    rag_effective_top_k: int = Field(default=4, description="Hard cap for RAG chunks included in explain/fix prompts")
+    rag_prompt_max_chunk_chars: int = Field(default=320, description="Per-chunk context size cap for RAG prompts")
+    rag_prompt_max_total_chars: int = Field(default=1200, description="Total context size cap for RAG prompts")
+    rag_response_cache_ttl_seconds: int = Field(default=900, description="TTL for cached RAG explain/fix responses")
+    rag_response_cache_max_entries: int = Field(default=256, description="Max in-memory cached RAG responses")
+    rag_cache_redis_url: str | None = Field(default=None, description="Optional Redis URL for shared RAG response caching")
 
     class Config:
         env_file = ".env"

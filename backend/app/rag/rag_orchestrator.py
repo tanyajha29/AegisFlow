@@ -1,19 +1,13 @@
 """
-RAG orchestrator — the single entry point for /rag/explain and /rag/fix.
-
-Fix history:
-- Raised timeout (was 15s, now 120s via config)
-- Added source_mode to all responses ("rag" | "fallback")
-- Replaced bare ExplainResponse(**parsed) with safe field-by-field normalization
-- Added type-specific fallback content (not generic "AI explanation unavailable")
-- Added structured logging for every failure point
-- Prompt now uses build_explain_prompt / build_fix_prompt (stricter JSON-only rules)
+RAG orchestrator - the single entry point for /rag/explain and /rag/fix.
 """
 
 from __future__ import annotations
 
+import hashlib
 import logging
-from typing import Any, Dict, List, Optional
+import time
+from typing import Any, Dict, List
 
 from sqlalchemy.orm import Session
 
@@ -21,21 +15,21 @@ from app.agents.base_agent import BaseAgent
 from app.config import get_settings
 
 from .prompt_builder import build_explain_prompt, build_fix_prompt
-from .retriever_service import search_chunks
+from .response_cache import get_rag_response_cache
+from .retriever_service import get_last_retrieval_timings, search_chunks
 from .schemas import ExplainRequest, ExplainResponse, FixResponse, Reference
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
+_cache = get_rag_response_cache()
+_agent = BaseAgent(
+    name="RAG Agent",
+    temperature=settings.rag_llm_temperature,
+    max_tokens=settings.rag_llm_max_tokens,
+)
 
-_agent = BaseAgent(name="RAG Agent")
-
-
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
 
 def _parse_references(raw: Any) -> List[Reference]:
-    """Safely parse a references list from model output."""
     refs: List[Reference] = []
     if not isinstance(raw, list):
         return refs
@@ -49,7 +43,6 @@ def _parse_references(raw: Any) -> List[Reference]:
 
 
 def _str(value: Any, fallback: str = "") -> str:
-    """Coerce a value to a non-empty string or return fallback."""
     if value is None:
         return fallback
     s = str(value).strip()
@@ -57,7 +50,6 @@ def _str(value: Any, fallback: str = "") -> str:
 
 
 def _chunks_to_refs(chunks: List[Dict[str, Any]]) -> List[Reference]:
-    """Build Reference objects from retrieved KB chunks."""
     refs: List[Reference] = []
     seen = set()
     for c in chunks:
@@ -70,12 +62,7 @@ def _chunks_to_refs(chunks: List[Dict[str, Any]]) -> List[Reference]:
     return refs
 
 
-# ---------------------------------------------------------------------------
-# Type-specific fallback content
-# ---------------------------------------------------------------------------
-
 def _fallback_content(vuln_type: str) -> Dict[str, Any]:
-    """Return polished deterministic content keyed by vulnerability type."""
     vt = (vuln_type or "").lower()
 
     if "sql" in vt:
@@ -167,7 +154,6 @@ def _fallback_content(vuln_type: str) -> Dict[str, Any]:
                 Reference(label="OWASP Path Traversal", source="OWASP"),
             ],
         }
-    # Generic fallback
     return {
         "title": f"Security Finding: {vuln_type}",
         "summary": "A potential security weakness was detected in the application.",
@@ -180,20 +166,12 @@ def _fallback_content(vuln_type: str) -> Dict[str, Any]:
     }
 
 
-# ---------------------------------------------------------------------------
-# Normalize model output → ExplainResponse
-# ---------------------------------------------------------------------------
-
 def _normalize_explain(
     parsed: Dict[str, Any],
     req: ExplainRequest,
     chunks: List[Dict[str, Any]],
     fallback: Dict[str, Any],
 ) -> ExplainResponse:
-    """
-    Safely map model output to ExplainResponse.
-    Falls back field-by-field so a partial response is still useful.
-    """
     ctx_count = len(chunks)
     refs = _parse_references(parsed.get("references"))
     if not refs:
@@ -245,10 +223,6 @@ def _normalize_fix(
     )
 
 
-# ---------------------------------------------------------------------------
-# Fallback builders
-# ---------------------------------------------------------------------------
-
 def _fallback_explain(req: ExplainRequest, chunks: List[Dict[str, Any]], reason: str) -> ExplainResponse:
     logger.warning("[RAG explain] Falling back to deterministic response. Reason: %s", reason)
     fb = _fallback_content(req.type)
@@ -284,122 +258,50 @@ def _fallback_fix(req: ExplainRequest, chunks: List[Dict[str, Any]], reason: str
     )
 
 
-# ---------------------------------------------------------------------------
-# Public API
-# ---------------------------------------------------------------------------
-
-def run_explain(db: Session, req: ExplainRequest) -> ExplainResponse:
-    import time
-    t_total = time.perf_counter()
-    fallback = _fallback_content(req.type)
-
-    # 1. Retrieve context
-    t0 = time.perf_counter()
-    chunks = search_chunks(
-        db,
-        query=req.description or req.type,
-        vulnerability_type=req.type,
-        language=req.language,
-        framework=req.framework,
-        top_k=settings.rag_top_k,
-    )
-    logger.info("[RAG explain] retrieval=%.3fs chunks=%d finding_id=%s type=%r",
-                time.perf_counter() - t0, len(chunks), req.finding_id, req.type)
-
-    # 2. Build prompt
-    t0 = time.perf_counter()
-    kb_contexts = _chunks_to_kb_entries(chunks)
-    prompt = build_explain_prompt(req, kb_contexts)
-    logger.info("[RAG explain] prompt_build=%.3fs prompt_len=%d", time.perf_counter() - t0, len(prompt))
-
-    # 3. Call LLM
-    t0 = time.perf_counter()
-    raw = _agent.send_prompt(prompt)
-    logger.info("[RAG explain] llm_call=%.3fs response_len=%d", time.perf_counter() - t0, len(raw) if raw else 0)
-
-    if not raw:
-        logger.warning("[RAG explain] total=%.3fs → fallback (empty LLM response)", time.perf_counter() - t_total)
-        return _fallback_explain(req, chunks, "LLM returned empty response (timeout or connection error)")
-
-    logger.info("[RAG explain] Raw model output (%d chars): %r", len(raw), raw[:300])
-
-    # 4. Parse JSON
-    t0 = time.perf_counter()
-    parsed = _agent.safe_json_loads(raw)
-    logger.info("[RAG explain] json_parse=%.3fs success=%s", time.perf_counter() - t0, parsed is not None)
-
-    if not isinstance(parsed, dict):
-        logger.warning("[RAG explain] JSON parse failed. finding_id=%s raw_preview=%r", req.finding_id, raw[:300])
-        logger.info("[RAG explain] total=%.3fs → fallback (parse failure)", time.perf_counter() - t_total)
-        return _fallback_explain(req, chunks, f"JSON unrecoverable after 6 parse stages (raw len={len(raw)})")
-
-    # 5. Normalize and return
-    try:
-        result = _normalize_explain(parsed, req, chunks, fallback)
-        logger.info("[RAG explain] total=%.3fs source_mode=%s", time.perf_counter() - t_total, result.source_mode)
-        return result
-    except Exception as exc:
-        logger.error("[RAG explain] Normalization error for finding_id=%s: %s", req.finding_id, exc)
-        return _fallback_explain(req, chunks, f"Normalization error: {exc}")
+def _effective_top_k() -> int:
+    return max(1, min(settings.rag_top_k, settings.rag_effective_top_k))
 
 
-def run_fix(db: Session, req: ExplainRequest) -> FixResponse:
-    import time
-    t_total = time.perf_counter()
-
-    # 1. Retrieve context
-    t0 = time.perf_counter()
-    chunks = search_chunks(
-        db,
-        query=req.description or req.type,
-        vulnerability_type=req.type,
-        language=req.language,
-        framework=req.framework,
-        top_k=settings.rag_top_k,
-    )
-    logger.info("[RAG fix] retrieval=%.3fs chunks=%d finding_id=%s type=%r",
-                time.perf_counter() - t0, len(chunks), req.finding_id, req.type)
-
-    # 2. Build prompt
-    t0 = time.perf_counter()
-    kb_contexts = _chunks_to_kb_entries(chunks)
-    prompt = build_fix_prompt(req, kb_contexts)
-    logger.info("[RAG fix] prompt_build=%.3fs", time.perf_counter() - t0)
-
-    # 3. Call LLM
-    t0 = time.perf_counter()
-    raw = _agent.send_prompt(prompt)
-    logger.info("[RAG fix] llm_call=%.3fs response_len=%d", time.perf_counter() - t0, len(raw) if raw else 0)
-
-    if not raw:
-        logger.info("[RAG fix] total=%.3fs → fallback", time.perf_counter() - t_total)
-        return _fallback_fix(req, chunks, "LLM returned empty response (timeout or connection error)")
-
-    logger.info("[RAG fix] Raw model output (%d chars): %r", len(raw), raw[:300])
-
-    # 4. Parse JSON
-    parsed = _agent.safe_json_loads(raw)
-    if not isinstance(parsed, dict):
-        logger.warning("[RAG fix] JSON parse failed. finding_id=%s raw_preview=%r", req.finding_id, raw[:300])
-        return _fallback_fix(req, chunks, f"JSON unrecoverable after 6 parse stages (raw len={len(raw)})")
-
-    # 5. Normalize and return
-    try:
-        result = _normalize_fix(parsed, req, chunks)
-        logger.info("[RAG fix] total=%.3fs source_mode=%s", time.perf_counter() - t_total, result.source_mode)
-        return result
-    except Exception as exc:
-        logger.error("[RAG fix] Normalization error for finding_id=%s: %s", req.finding_id, exc)
-        return _fallback_fix(req, chunks, f"Normalization error: {exc}")
+def _dedupe_chunks(chunks: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    deduped: List[Dict[str, Any]] = []
+    seen = set()
+    for chunk in chunks:
+        content = str(chunk.get("content") or "").strip()
+        key = (
+            str(chunk.get("source") or "").strip().lower(),
+            str(chunk.get("title") or "").strip().lower(),
+            content[:240].lower(),
+        )
+        if key in seen:
+            continue
+        seen.add(key)
+        deduped.append(chunk)
+    return deduped
 
 
-# ---------------------------------------------------------------------------
-# Internal helpers
-# ---------------------------------------------------------------------------
+def _prepare_chunks(chunks: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    limit = _effective_top_k()
+    prepared: List[Dict[str, Any]] = []
+    total_chars = 0
+    for chunk in _dedupe_chunks(chunks):
+        content = str(chunk.get("content") or "").strip()
+        if not content:
+            continue
+        trimmed = dict(chunk)
+        trimmed["content"] = content
+        projected = total_chars + min(len(content), settings.rag_prompt_max_chunk_chars)
+        if prepared and projected > settings.rag_prompt_max_total_chars:
+            break
+        prepared.append(trimmed)
+        total_chars = projected
+        if len(prepared) >= limit:
+            break
+    return prepared
+
 
 def _chunks_to_kb_entries(chunks: List[Dict[str, Any]]):
-    """Convert retriever dicts to KBEntry objects for the prompt builder."""
-    from .schemas import KBEntry, Reference as Ref
+    from .schemas import KBEntry
+
     entries = []
     for c in chunks:
         meta = c.get("metadata") or {}
@@ -417,3 +319,148 @@ def _chunks_to_kb_entries(chunks: List[Dict[str, Any]]):
             )
         )
     return entries
+
+
+def _request_cache_key(mode: str, req: ExplainRequest) -> str:
+    code_hash = hashlib.sha256((req.code_snippet or "").encode("utf-8")).hexdigest()
+    description_hash = hashlib.sha256((req.description or "").encode("utf-8")).hexdigest()
+    raw = "|".join(
+        [
+            mode,
+            req.type.strip().lower(),
+            (req.severity or "").strip().lower(),
+            (req.language or "").strip().lower(),
+            (req.framework or "").strip().lower(),
+            code_hash,
+            description_hash,
+        ]
+    )
+    return f"rag:{mode}:{hashlib.sha256(raw.encode('utf-8')).hexdigest()}"
+
+
+def _response_from_cache(response_cls, req: ExplainRequest, cache_key: str):
+    cached = _cache.get(cache_key)
+    if not cached:
+        return None
+    payload = dict(cached)
+    payload["finding_id"] = req.finding_id
+    return response_cls.model_validate(payload)
+
+
+def _store_response(cache_key: str, response) -> None:
+    _cache.set(cache_key, response.model_dump(mode="json"))
+
+
+def _log_timing(mode: str, cache_hit: bool, encoding_time: float, retrieval_time: float, prompt_build_time: float, llm_time: float, total_rag_time: float) -> None:
+    logger.info(
+        "[RAG %s] cache_hit=%s encoding_time=%.3fs retrieval_time=%.3fs prompt_build_time=%.3fs llm_time=%.3fs total_rag_time=%.3fs",
+        mode,
+        cache_hit,
+        encoding_time,
+        retrieval_time,
+        prompt_build_time,
+        llm_time,
+        total_rag_time,
+    )
+
+
+def run_explain(db: Session, req: ExplainRequest) -> ExplainResponse:
+    t_total = time.perf_counter()
+    cache_key = _request_cache_key("explain", req)
+    cached = _response_from_cache(ExplainResponse, req, cache_key)
+    if cached is not None:
+        _log_timing("explain", True, 0.0, 0.0, 0.0, 0.0, time.perf_counter() - t_total)
+        return cached
+
+    fallback = _fallback_content(req.type)
+
+    raw_chunks = search_chunks(
+        db,
+        query=req.description or req.type,
+        vulnerability_type=req.type,
+        language=req.language,
+        framework=req.framework,
+        top_k=_effective_top_k(),
+    )
+    encoding_time, retrieval_time = get_last_retrieval_timings()
+    chunks = _prepare_chunks(raw_chunks)
+
+    t0 = time.perf_counter()
+    kb_contexts = _chunks_to_kb_entries(chunks)
+    prompt = build_explain_prompt(req, kb_contexts)
+    prompt_build_time = time.perf_counter() - t0
+
+    t0 = time.perf_counter()
+    raw = _agent.send_prompt(prompt)
+    llm_time = time.perf_counter() - t0
+
+    if not raw:
+        result = _fallback_explain(req, chunks, "LLM returned empty response (timeout or connection error)")
+        _log_timing("explain", False, encoding_time, retrieval_time, prompt_build_time, llm_time, time.perf_counter() - t_total)
+        return result
+
+    parsed = _agent.safe_json_loads(raw)
+    if not isinstance(parsed, dict):
+        result = _fallback_explain(req, chunks, f"JSON unrecoverable after 6 parse stages (raw len={len(raw)})")
+        _log_timing("explain", False, encoding_time, retrieval_time, prompt_build_time, llm_time, time.perf_counter() - t_total)
+        return result
+
+    try:
+        result = _normalize_explain(parsed, req, chunks, fallback)
+        _store_response(cache_key, result)
+        _log_timing("explain", False, encoding_time, retrieval_time, prompt_build_time, llm_time, time.perf_counter() - t_total)
+        return result
+    except Exception as exc:
+        result = _fallback_explain(req, chunks, f"Normalization error: {exc}")
+        _log_timing("explain", False, encoding_time, retrieval_time, prompt_build_time, llm_time, time.perf_counter() - t_total)
+        return result
+
+
+def run_fix(db: Session, req: ExplainRequest) -> FixResponse:
+    t_total = time.perf_counter()
+    cache_key = _request_cache_key("fix", req)
+    cached = _response_from_cache(FixResponse, req, cache_key)
+    if cached is not None:
+        _log_timing("fix", True, 0.0, 0.0, 0.0, 0.0, time.perf_counter() - t_total)
+        return cached
+
+    raw_chunks = search_chunks(
+        db,
+        query=req.description or req.type,
+        vulnerability_type=req.type,
+        language=req.language,
+        framework=req.framework,
+        top_k=_effective_top_k(),
+    )
+    encoding_time, retrieval_time = get_last_retrieval_timings()
+    chunks = _prepare_chunks(raw_chunks)
+
+    t0 = time.perf_counter()
+    kb_contexts = _chunks_to_kb_entries(chunks)
+    prompt = build_fix_prompt(req, kb_contexts)
+    prompt_build_time = time.perf_counter() - t0
+
+    t0 = time.perf_counter()
+    raw = _agent.send_prompt(prompt)
+    llm_time = time.perf_counter() - t0
+
+    if not raw:
+        result = _fallback_fix(req, chunks, "LLM returned empty response (timeout or connection error)")
+        _log_timing("fix", False, encoding_time, retrieval_time, prompt_build_time, llm_time, time.perf_counter() - t_total)
+        return result
+
+    parsed = _agent.safe_json_loads(raw)
+    if not isinstance(parsed, dict):
+        result = _fallback_fix(req, chunks, f"JSON unrecoverable after 6 parse stages (raw len={len(raw)})")
+        _log_timing("fix", False, encoding_time, retrieval_time, prompt_build_time, llm_time, time.perf_counter() - t_total)
+        return result
+
+    try:
+        result = _normalize_fix(parsed, req, chunks)
+        _store_response(cache_key, result)
+        _log_timing("fix", False, encoding_time, retrieval_time, prompt_build_time, llm_time, time.perf_counter() - t_total)
+        return result
+    except Exception as exc:
+        result = _fallback_fix(req, chunks, f"Normalization error: {exc}")
+        _log_timing("fix", False, encoding_time, retrieval_time, prompt_build_time, llm_time, time.perf_counter() - t_total)
+        return result

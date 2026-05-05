@@ -47,9 +47,12 @@ def on_startup():
     logger.info("Database tables ensured")
     if settings.prewarm_embeddings_on_startup:
         try:
-            from .rag.retriever_service import _get_model
-            _get_model()
-            logger.info("SentenceTransformer pre-warmed successfully")
+            from .rag.retriever_service import warmup_embeddings
+
+            if warmup_embeddings():
+                logger.info("SentenceTransformer pre-warmed successfully")
+            else:
+                logger.warning("SentenceTransformer pre-warm skipped because the model is unavailable")
         except Exception as exc:
             logger.warning("SentenceTransformer pre-warm failed (non-fatal): %s", exc)
     else:

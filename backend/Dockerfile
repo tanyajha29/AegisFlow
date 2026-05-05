@@ -16,7 +16,8 @@ COPY app ./app
 COPY rules ./rules
 
 RUN useradd -ms /bin/bash appuser
-RUN mkdir -p /app/backend/uploads && chown -R appuser:appuser /app
+RUN mkdir -p /app/backend/uploads /home/appuser/.cache/huggingface/sentence_transformers \
+    && chown -R appuser:appuser /app /home/appuser
 USER appuser
 
 EXPOSE 8000
